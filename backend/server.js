@@ -1,9 +1,13 @@
 import express from "express";
-import dotenv from "dotenv";
-dotenv.config();
-import authRoute from "./routes/auth.routes.js";
-import connectMongo from "./db/connectMongoDB.js";
 import cookieParser from "cookie-parser";
+import dotenv from "dotenv";
+
+import authRoute from "./routes/auth.routes.js";
+import userRoute from "./routes/user.routes.js"
+
+import connectMongo from "./db/connectMongoDB.js";
+
+dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT;
@@ -14,7 +18,10 @@ app.use(express.json());
 //parse form data (url encoded)
 app.use(express.urlencoded({ extended: true }));
 
+//routes
 app.use("/api/auth", authRoute);
+app.use("/api/users", userRoute);
+
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
