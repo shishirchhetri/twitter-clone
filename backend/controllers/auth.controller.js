@@ -120,3 +120,15 @@ export const logout = async (req, res) => {
     res.status(500).json({ error: "Internal server error!" });
   }
 };
+
+//getting the currently logged in user
+export const getUser = async (req, res)=>{
+    try{
+        //req.user is provided by the middleware
+        const user = await User.findById(req.user._id).select('-password');
+        res.status(200).json(user);
+    }catch(error){
+        console.log('error in getUser controller: ', error.message);
+        res.status(500).json({error: 'Internal server error!'})
+    }
+}
