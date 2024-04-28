@@ -5,6 +5,7 @@ import { v2 as cloudinary } from "cloudinary";
 
 import authRoute from "./routes/auth.routes.js";
 import userRoute from "./routes/user.routes.js";
+import postRoute from "./routes/post.routes.js"
 
 import connectMongo from "./db/connectMongoDB.js";
 
@@ -28,6 +29,7 @@ app.use(express.urlencoded({ extended: true }));
 //routes
 app.use("/api/auth", authRoute);
 app.use("/api/users", userRoute);
+app.use("/api/posts", postRoute)
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
