@@ -1,6 +1,9 @@
 import Notification from "../models/notification.model.js";
 import User from "../models/user.model.js";
 
+import bcrypt from "bcryptjs";
+import { v2 as cloudinary } from "cloudinary";
+
 //get user profile controller
 export const getUserProfile = async (req, res) => {
   const { username } = req.params;
@@ -77,36 +80,138 @@ export const followUnfollowUser = async (req, res) => {
   }
 };
 
-//suggested user sidebar route
+//suggested user sidebar controller
 export const getSuggestedUsers = async (req, res) => {
   try {
-    
     //current user loggedin id
     const userId = req.user._id;
 
     //list of users whom the currently loggedin user follows
     const usersFollowedByMe = await User.findById(userId).select("following");
 
-    //listing users excluding the currently logged in user to 
+    //listing users excluding the currently logged in user to
     const users = await User.aggregate([
-        {
-            $match: {
-                _id: { $ne: userId }, //$ne = not equals 
-            },
+      {
+        $match: {
+          _id: { $ne: userId }, //$ne = not equals
         },
-        { $sample: { size: 10 } }, //select only 10 user excuding the logged in 
+      },
+      { $sample: { size: 10 } }, //select only 10 user excuding the logged in
     ]);
 
     //exclude the currently logged in user and already following users from the list
-    const filteredUsers = users.filter((user) => !usersFollowedByMe.following.includes(user._id));
+    const filteredUsers = users.filter(
+      (user) => !usersFollowedByMe.following.includes(user._id)
+    );
     //show only 4 users as suggestion
     const suggestedUsers = filteredUsers.slice(0, 4);
     //removing the password from the details of the suggested user object list
-    suggestedUsers.forEach(user => user.password = null)
+    suggestedUsers.forEach((user) => (user.password = null));
 
     res.status(200).json(suggestedUsers);
   } catch (error) {
     console.log("Error in suggestedUsers controller: ", error.message);
+    res.status(500).json({ error: "Internal server error!" });
+  }
+};
+
+//update user profile controller
+export const updateUserProfile = async (req, res) => {
+  const { fullName, email, username, currentPassword, newPassword, bio, link } =
+    req.body;
+  let { profileImg, coverImg } = req.body;
+
+  const userId = req.user._id;
+
+  try {
+    let user = await User.findById(userId);
+
+    if (!user) return res.status(400).json({ error: "User not found!" });
+
+    //changing the current password
+    if (
+      (!newPassword && currentPassword) ||
+      (!currentPassword && newPassword)
+    ) {
+      res.status(400).json({
+        error: "Please provide both the current password and new password!",
+      });
+    }
+
+    if (currentPassword && newPassword) {
+      const isMatch = await bcrypt.compare(currentPassword, user.password);
+
+      if (!isMatch) {
+        return res
+          .status(404)
+          .json({ error: "current password doesnot match!" });
+      }
+
+      if (newPassword.length < 6) {
+        return res
+          .status(400)
+          .json({ error: "new password must be at least 6 characters long!" });
+      }
+
+      //encrypting the password
+      const salt = await bcrypt.genSalt(10);
+      user.password = await bcrypt.hash(newPassword, salt);
+    }
+
+    //changing the profile image
+    if (profileImg) {
+      /*
+      Deleting the previous image of the user 
+      https://res.cloudinary.com/cloudname/image/upload/version/imageId.png
+      is the url we get as profileImg / coverImgafter uploading the image to 
+      the cloudinary, the below code first splits the url by '/' and then pops 
+      out the latest that is imageId.png part and again splits it by '.' and 
+      then takes the first onethat is imageId as we are using the [0] which 
+      gurantees we get the imageid and finally the image with that id is 
+      destroyed by the function below
+      */
+      if (user.profileImg) {
+        await cloudinary.uploader.destroy(
+          user.profileImg.split("/").pop().split(".")[0]
+        );
+      }
+
+      //uploading the new image in cloudinary
+      const uploadedResponse = await cloudinary.uploader.upload(profileImg);
+      profileImg = uploadedResponse.secure_url;
+    }
+
+    //changing the cover image
+    if (coverImg) {
+      if (user.coverImg) {
+        await cloudinary.uploader.destroy(
+          user.coverImg.split("/").pop().split(".")[0]
+        );
+      }
+      //uploading the new image in cloudinary
+      const uploadedResponse = await cloudinary.uploader.upload(coverImg);
+      coverImg = uploadedResponse.secure_url;
+    }
+
+    //updating the new updates to the user object if user provides the data
+    user.fullName = fullName || user.fullName;
+    user.email = email || user.email;
+    user.username = username || user.username;
+    user.bio = bio || user.bio;
+    user.link = link || user.link;
+    user.profileImg = profileImg || user.profileImg;
+    user.coverImg = coverImg || user.coverImg;
+
+    //saving the updates to the db
+    user = await user.save();
+
+    //setting the response password t0 null
+    user.password = null;
+
+    //returning the data to the user
+    return res.status(201).json(user);
+  } catch (error) {
+    console.log("Error in updating user: ", error.message);
     res.status(500).json({ error: "Internal server error!" });
   }
 };
