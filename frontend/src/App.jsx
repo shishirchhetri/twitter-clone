@@ -2,11 +2,13 @@ import { Route, Routes } from "react-router-dom";
 import HomePage from "./pages/home/HomePage";
 import LogInPage from "./pages/auth/login/LogInPage";
 import SignUpPage from "./pages/auth/signup/SignUpPage";
+import Sidebar from "./components/common/Sidebar";
 
 function App() {
   return (
     <>
-      <div className="">
+      <div className="flex max-w-6xl mx-auto">
+        <Sidebar/>
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/login" element={<LogInPage />} />
