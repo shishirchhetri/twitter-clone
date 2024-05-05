@@ -17,7 +17,7 @@ const Post = ({ post }) => {
     queryKey: ['authUser'],
   });
 
-  const { mutate: deletePost, isPending } = useMutation({
+  const { mutate: deletePost, isPending: isDeleting } = useMutation({
     mutationFn: async () => {
       try {
         const res = await fetch(`/api/posts/${post._id}`, {
@@ -41,9 +41,49 @@ const Post = ({ post }) => {
     },
   });
 
+  const { mutate: likePost, isPending: isLiking } = useMutation({
+    mutationFn: async () => {
+      try {
+        const res = await fetch(`/api/posts/like/${post._id}`, {
+          method: 'POST',
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data.error || 'failed to like post');
+        }
+
+        return data;
+      } catch (error) {
+        throw new Error(error);
+      }
+    },
+    onSuccess: (updatedLikes) => {
+      //invalidating the post but it will refetch the posts that will reload the page
+      //which is poor user experience
+      /* queryClient.invalidateQueries({
+        queryKey: ['posts'],
+      }); */
+
+      //instead update the cache of that post so that like number will be updated
+      //without refreshing the page
+      queryClient.setQueryData(['posts'], (oldData) => {
+        return oldData.map((p) => {
+          if (p._id === post._id) {
+            return { ...p, likes: updatedLikes };
+          }
+          return p;
+        });
+      });
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+
   const postOwner = post.user;
 
-  const isLiked = false;
+  const isLiked = post.likes.includes(authUser._id);
 
   //check if the post is the currently logged in user's or not
   const isMyPost = authUser._id === post.user._id;
@@ -60,11 +100,15 @@ const Post = ({ post }) => {
     e.preventDefault();
   };
 
-  const handleLikePost = () => {};
+  const handleLikePost = () => {
+    if (isLiking) return;
+    likePost();
+  };
 
   return (
     <>
       <div className='flex gap-2 items-start p-4 border-b border-gray-700'>
+        {/* postOwner image and username  */}
         <div className='avatar'>
           <Link
             to={`/profile/${postOwner.username}`}
@@ -87,7 +131,7 @@ const Post = ({ post }) => {
             </span>
             {isMyPost && (
               <span className='flex justify-end flex-1'>
-                {isPending ? (
+                {isDeleting ? (
                   <LoadingSpinner size='sm' />
                 ) : (
                   <FaTrash
@@ -98,6 +142,7 @@ const Post = ({ post }) => {
               </span>
             )}
           </div>
+          {/* post image */}
           <div className='flex flex-col gap-3 overflow-hidden'>
             <span>{post.text}</span>
             {post.img && (
@@ -108,8 +153,12 @@ const Post = ({ post }) => {
               />
             )}
           </div>
+          {/* comment modal */}
           <div className='flex justify-between mt-3'>
             <div className='flex gap-4 items-center w-2/3 justify-between'>
+              {/* as we have set the different id for the differnt comment box we have
+              to pass the correct id so that only the comment modal of the respective
+              post is opened */}
               <div
                 className='flex gap-1 items-center cursor-pointer group'
                 onClick={() =>
@@ -123,7 +172,8 @@ const Post = ({ post }) => {
                   {post.comments.length}
                 </span>
               </div>
-              {/* We're using Modal Component from DaisyUI */}
+              {/* this modal is from Daisy UI, wer're passingt the id so that the 
+              model for the comment in different post is also differnt */}
               <dialog
                 id={`comments_modal${post._id}`}
                 className='modal border-none outline-none'
@@ -162,6 +212,7 @@ const Post = ({ post }) => {
                       </div>
                     ))}
                   </div>
+                  {/* new comment */}
                   <form
                     className='flex gap-2 items-center mt-4 border-t border-gray-600 pt-2'
                     onSubmit={handlePostComment}
@@ -173,11 +224,7 @@ const Post = ({ post }) => {
                       onChange={(e) => setComment(e.target.value)}
                     />
                     <button className='btn btn-primary rounded-full btn-sm text-white px-4'>
-                      {isCommenting ? (
-                        <span className='loading loading-spinner loading-md'></span>
-                      ) : (
-                        'Post'
-                      )}
+                      {isCommenting ? <LoadingSpinner size='md' /> : 'Post'}
                     </button>
                   </form>
                 </div>
@@ -195,16 +242,19 @@ const Post = ({ post }) => {
                 className='flex gap-1 items-center group cursor-pointer'
                 onClick={handleLikePost}
               >
-                {!isLiked && (
+                {/* isLiking state */}
+                {isLiking && <LoadingSpinner size='sm' />}
+
+                {!isLiked && !isLiking && (
                   <FaRegHeart className='w-4 h-4 cursor-pointer text-slate-500 group-hover:text-pink-500' />
                 )}
-                {isLiked && (
+                {isLiked && !isLiking && (
                   <FaRegHeart className='w-4 h-4 cursor-pointer text-pink-500 ' />
                 )}
 
                 <span
-                  className={`text-sm text-slate-500 group-hover:text-pink-500 ${
-                    isLiked ? 'text-pink-500' : ''
+                  className={`text-sm  group-hover:text-pink-500 ${
+                    isLiked ? 'text-pink-500' : 'text-slate-500'
                   }`}
                 >
                   {post.likes.length}
