@@ -7,16 +7,31 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
+
 import LoadingSpinner from './LoadingSpinner.jsx';
+import { formatPostDate } from '../../utils/data/index.js';
 
 const Post = ({ post }) => {
   const [comment, setComment] = useState('');
   const queryClient = useQueryClient();
 
+  //get the information about the currently logged in user
   const { data: authUser } = useQuery({
     queryKey: ['authUser'],
   });
 
+  //check if the post was from current user or not
+  const postOwner = post.user;
+
+  //check if the current user has liked the post or not
+  const isLiked = post.likes.includes(authUser._id);
+
+  //check if the post is the currently logged in user's or not
+  const isMyPost = authUser._id === post.user._id;
+
+  const formattedDate = formatPostDate(post.createdAt);
+
+  //for deleting the post state
   const { mutate: deletePost, isPending: isDeleting } = useMutation({
     mutationFn: async () => {
       try {
@@ -41,6 +56,7 @@ const Post = ({ post }) => {
     },
   });
 
+  //for updating the like state
   const { mutate: likePost, isPending: isLiking } = useMutation({
     mutationFn: async () => {
       try {
@@ -81,16 +97,52 @@ const Post = ({ post }) => {
     },
   });
 
-  const postOwner = post.user;
+  //for updating the comment state
+  const { mutate: commentOnPost, isPending: isCommenting } = useMutation({
+    mutationFn: async () => {
+      try {
+        const res = await fetch(`/api/posts/comment/${post._id}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ text: comment }),
+        });
+        const data = await res.json();
 
-  const isLiked = post.likes.includes(authUser._id);
+        if (!res.ok) {
+          throw new Error(data.error || 'failed to comment');
+        }
 
-  //check if the post is the currently logged in user's or not
-  const isMyPost = authUser._id === post.user._id;
+        return data;
+      } catch (error) {
+        throw new Error(error);
+      }
+    },
+    //pass the 'updatedComments' as an argument to get new comments without refreshing
+    //which we get as data from the mutation function above
+    onSuccess: () => {
+      toast.success('Comment posted successfully');
+      setComment('');
 
-  const formattedDate = '1h';
+      //revalidate the queryKey post so that new comments are loaded
+      queryClient.invalidateQueries({ queryKey: ['posts'] });
 
-  const isCommenting = false;
+      //another method to show the new comment without refreshing by updating
+      //the cache directly
+      /*   queryClient.setQueryData(['posts'], (oldData) => {
+        return oldData.map((p) => {
+          if (p._id === post._id) {
+            return { ...p, comments: updatedComments };
+          }
+          return p;
+        });
+      }); */
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
 
   const handleDeletePost = () => {
     deletePost();
@@ -98,6 +150,10 @@ const Post = ({ post }) => {
 
   const handlePostComment = (e) => {
     e.preventDefault();
+    if (isCommenting) {
+      return;
+    }
+    commentOnPost();
   };
 
   const handleLikePost = () => {
@@ -172,7 +228,7 @@ const Post = ({ post }) => {
                   {post.comments.length}
                 </span>
               </div>
-              {/* this modal is from Daisy UI, wer're passingt the id so that the 
+              {/* this modal is from Daisy UI, we're passing the id so that the 
               model for the comment in different post is also differnt */}
               <dialog
                 id={`comments_modal${post._id}`}
@@ -201,7 +257,10 @@ const Post = ({ post }) => {
                         <div className='flex flex-col'>
                           <div className='flex items-center gap-1'>
                             <span className='font-bold'>
-                              {comment.user.fullName}
+                              {/*  {comment.user.fullName} */}
+                              {comment.user.username === authUser.username
+                                ? 'You'
+                                : comment.user.fullName}
                             </span>
                             <span className='text-gray-700 text-sm'>
                               @{comment.user.username}
