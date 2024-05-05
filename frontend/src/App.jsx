@@ -28,7 +28,6 @@ function App() {
         if (!res.ok) {
           throw new Error(data.error || 'error getting user');
         }
-        console.log('Auth user: ', data);
         return data;
       } catch (error) {
         throw new Error(error);
