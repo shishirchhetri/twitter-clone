@@ -2,6 +2,7 @@ import express from 'express';
 import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import { v2 as cloudinary } from 'cloudinary';
+import path from 'path';
 
 import authRoute from './routes/auth.route.js';
 import userRoute from './routes/user.route.js';
@@ -20,6 +21,10 @@ cloudinary.config({
 
 const app = express();
 const PORT = process.env.PORT;
+
+//resolving the path errors
+const __dirname = path.resolve();
+
 //for parsing jwt cookie token
 app.use(cookieParser());
 //middleware to parse data from frontend
@@ -33,6 +38,17 @@ app.use('/api/auth', authRoute);
 app.use('/api/users', userRoute);
 app.use('/api/posts', postRoute);
 app.use('/api/notifications', notificationRoute);
+
+if (process.env.NODE_ENV === 'production') {
+  //use dist folder as static path
+  app.use(express.static(path.join(__dirname, '/frontend/dist')));
+
+  //navigate the user to react-app if requests, other than the above listed
+  //appears in production mode
+  app.get('*', (req, res) => {
+    res.sendFile(path.resolve(__dirname, 'frontend', 'dist', 'index.html'));
+  });
+}
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
