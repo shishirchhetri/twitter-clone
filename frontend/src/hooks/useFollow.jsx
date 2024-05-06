@@ -27,17 +27,19 @@ const useFollow = () => {
       }
     },
     onSuccess: () => {
-      //invalidate follow user so that the user will be removed from suggested user list
-      queryClient.invalidateQueries({
-        queryKey: ['suggestedUsers'],
-      });
+      Promise.all([
+        //invalidate follow user so that the user will be removed from suggested user list
+        queryClient.invalidateQueries({
+          queryKey: ['suggestedUsers'],
+        }),
 
-      //invalidating the logged in user data as we use the follow field from the database
-      //so that we can implement follow unfollow button on the user's profile and update
-      //suggestedUsers list
-      queryClient.invalidateQueries({
-        queryKey: ['authUser'],
-      });
+        //invalidating the logged in user data as we use the follow field from the database
+        //so that we can implement follow unfollow button on the user's profile and update
+        //suggestedUsers list
+        queryClient.invalidateQueries({
+          queryKey: ['authUser'],
+        }),
+      ]);
     },
     onError: () => {
       toast.error(error.message);
