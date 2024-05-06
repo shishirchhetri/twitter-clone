@@ -114,6 +114,16 @@ export const commentOnPost = async (req, res) => {
     post.comments.push(comment);
     await post.save();
 
+    //push notification to the user
+    //create a notification to the post owner
+    const notification = new Notification({
+      from: userId,
+      to: post.user,
+      type: 'comment',
+    });
+
+    await notification.save();
+
     const updatedComment = post.comments;
 
     return res.status(200).json(updatedComment);

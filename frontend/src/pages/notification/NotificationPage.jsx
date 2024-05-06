@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 
 import { IoSettingsOutline } from 'react-icons/io5';
-import { FaUser } from 'react-icons/fa';
+import { FaComment, FaTrash, FaUser } from 'react-icons/fa';
 import { FaHeart } from 'react-icons/fa6';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -53,6 +53,29 @@ const NotificationPage = () => {
     },
   });
 
+  const { mutate: deleteSingleNotification } = useMutation({
+    mutationFn: async (notificationId) => {
+      try {
+        const res = await fetch(`/api/notifications/${notificationId}`, {
+          method: 'DELETE',
+        });
+        const data = await res.json();
+
+        if (!res.ok) throw new Error(data.error || 'Something went wrong');
+        return data;
+      } catch (error) {
+        throw new Error(error);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      toast.success('Notification deleted successfully');
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+
   return (
     <>
       <div className='flex-[4_4_0] border-l border-r border-gray-700 min-h-screen'>
@@ -83,16 +106,20 @@ const NotificationPage = () => {
           </div>
         )}
         {notifications?.length === 0 && (
-          <div className='text-center p-4 font-bold'>No notifications 🤔</div>
+          <div className='text-center p-4 font-bold'>No new notifications 🤔</div>
         )}
         {notifications?.map((notification) => (
           <div className='border-b border-gray-700' key={notification._id}>
-            <div className='flex gap-2 p-4'>
+            <div className='flex justify-between '>
+              <div className='flex  gap-2 p-4'>
               {notification.type === 'follow' && (
                 <FaUser className='w-7 h-7 text-primary' />
               )}
               {notification.type === 'like' && (
                 <FaHeart className='w-7 h-7 text-red-500' />
+              )}
+              {notification.type === 'comment' && (
+                <FaComment className='w-7 h-7 text-primary' />
               )}
               <Link to={`/profile/${notification.from.username}`}>
                 <div className='avatar'>
@@ -110,10 +137,21 @@ const NotificationPage = () => {
                     @{notification.from.username}
                   </span>{' '}
                   {notification.type === 'follow'
-                    ? 'followed you'
-                    : 'liked your post'}
+                    && 'followed you'
+                    }
+                    {notification.type === 'like'
+                    && 'liked your post'
+                    }
+                    {notification.type === 'comment' &&
+                     'commented on your post'
+                    }
                 </div>
               </Link>
+              </div>
+              <FaTrash
+                    className='cursor-pointer hover:text-red-500 mt-3 mr-3'
+                    onClick={()=> {deleteSingleNotification(notification._id)}}
+                  />
             </div>
           </div>
         ))}
