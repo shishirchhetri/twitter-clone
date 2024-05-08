@@ -81,7 +81,7 @@ export const getMessages = async (req, res) => {
   }
 };
 
-//get conversations
+//get all the conversations the logged in user is involved in
 export const getConversations = async (req, res) => {
   const userId = req.user._id;
   try {

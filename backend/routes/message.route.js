@@ -9,13 +9,14 @@ import {
 
 const router = express.Router();
 
+//getting all the conversation of the user with others
+router.get('/conversations', protectRoute, getConversations);
+
 //send a new message to a user
 router.post('/', protectRoute, sendMessage);
 
-//getting all the old messages
+// getting all the old messages
 router.get('/:otherUserId', protectRoute, getMessages);
 
-//getting all the conversation of the user with others
-router.get('/conversations', protectRoute, getConversations);
 
 export default router;
