@@ -1,14 +1,20 @@
 import XSvg from '../svgs/X';
-
-import { MdHomeFilled } from 'react-icons/md';
-import { IoNotifications } from 'react-icons/io5';
-import { FaUser } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
 import { BiLogOut } from 'react-icons/bi';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
+import { useState } from 'react';
+
+import { MdOutlineEmail, MdOutlineHome } from 'react-icons/md';
+import { MdHome } from 'react-icons/md';
+import { IoNotifications } from 'react-icons/io5';
+import { IoNotificationsOutline } from 'react-icons/io5';
+import { FaUser } from 'react-icons/fa';
+import { FaRegUser } from 'react-icons/fa';
+import { MdEmail } from 'react-icons/md';
 
 const Sidebar = () => {
+  const [active, setActive] = useState(1);
   const queryClient = useQueryClient();
 
   const { data: authUser } = useQuery({
@@ -19,20 +25,30 @@ const Sidebar = () => {
     {
       id: 1,
       link: '/',
-      icon: <MdHomeFilled className='w-8 h-8' />,
+      icon: <MdOutlineHome className='w-8 h-8' />,
+      activeIcon: <MdHome className='w-8 h-8' />,
       title: 'Home',
     },
     {
       id: 2,
       link: '/notifications',
-      icon: <IoNotifications className='w-6 h-6' />,
+      activeIcon: <IoNotifications className='w-6 h-6' />,
+      icon: <IoNotificationsOutline className='w-6 h-6' />,
       title: 'Notifications',
     },
     {
       id: 3,
       link: `/profile/${authUser.username}`,
-      icon: <FaUser className='w-6 h-6' />,
+      icon: <FaRegUser className='w-6 h-6' />,
+      activeIcon: <FaUser className='w-6 h-6' />,
       title: 'Profile',
+    },
+    {
+      id: 4,
+      link: `/conversations`,
+      icon: <MdOutlineEmail className='w-6 h-6' />,
+      activeIcon: <MdEmail className='w-6 h-6' />,
+      title: 'Message',
     },
   ];
 
@@ -79,12 +95,14 @@ const Sidebar = () => {
               <li
                 className='flex justify-center md:justify-start'
                 key={link.id}
+                onClick={() => setActive(link.id)}
               >
                 <Link
                   to={link.link}
-                  className='flex gap-3 items-center hover:bg-stone-900 transition-all rounded-full duration-300 py-2 pl-2 pr-4 max-w-fit cursor-pointer'
+                  className={`flex gap-3 items-center hover:bg-stone-900 transition-all rounded-full duration-300 py-2 pl-2 pr-4 max-w-fit cursor-pointer 
+${active === link.id ? 'bg-stone-900 font-semibold' : ''}`}
                 >
-                  {link.icon}
+                  {active === link.id ? link.activeIcon : link.icon}
                   <span className='text-lg hidden md:block'>{link.title}</span>
                 </Link>
               </li>

@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import HomePage from './pages/home/HomePage';
 import LogInPage from './pages/auth/login/LogInPage';
 import SignUpPage from './pages/auth/signup/SignUpPage';
@@ -6,11 +6,14 @@ import Sidebar from './components/common/Sidebar';
 import RightPanel from './components/common/RightPanel';
 import NotificationPage from './pages/notification/NotificationPage';
 import ProfilePage from './pages/profile/ProfilePage';
+import ChatPage from './pages/chat/ChatPage.jsx';
 import { Toaster } from 'react-hot-toast';
 import { useQuery } from '@tanstack/react-query';
 import LoadingSpinner from './components/common/LoadingSpinner';
 
 function App() {
+  const location = useLocation();
+  const hideRightPanel = location.pathname === '/conversations'
   //sending get request using tanstack query
   //getting the logged in status of the user
   const { data: authUser, isLoading } = useQuery({
@@ -74,8 +77,12 @@ function App() {
             path='/profile/:username'
             element={!authUser ? <Navigate to='/login' /> : <ProfilePage />}
           />
+          <Route
+            path='/conversations'
+            element={!authUser ? <Navigate to='/login' /> : <ChatPage />}
+          />
         </Routes>
-        {authUser && <RightPanel />}
+        {authUser && !hideRightPanel && <RightPanel />}
         <Toaster />
       </div>
     </>
