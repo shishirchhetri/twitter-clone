@@ -1,20 +1,25 @@
-import React, { useRef, useState } from "react";
+import React, { Fragment, useEffect, useRef, useState } from "react";
 import { FaArrowLeftLong } from "react-icons/fa6";
 import { CiImageOn } from "react-icons/ci";
 import { BsEmojiSmileFill } from "react-icons/bs";
 import { IoCloseSharp } from "react-icons/io5";
+import { useQuery } from "@tanstack/react-query";
 
-const Conversations = () => {
+const Conversations = ({ selectedConversation }) => {
   const [text, setText] = useState("");
   const [img, setImg] = useState(null);
-
   const imgRef = useRef(null);
 
+  //getting information of currently loggedin user
+  const {data:authUser} = useQuery({ queryKey: ["authUser"] });
+
+  //send message input form
   const sendMessage = (e) => {
     e.preventDefault();
     createPost({ text, img });
   };
 
+  //handle imge upload
   const handleImgChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -26,26 +31,63 @@ const Conversations = () => {
     }
   };
 
+  // for getting all the messages with the other user
+  const { data: messages, isPending: isMessageLoading, refetch } = useQuery({
+    queryKey: ["messages"],
+    queryFn: async () => {
+      try {
+        const res = await fetch(
+          `/api/messages/${selectedConversation.otherUserId}`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          }
+        );
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data.error || "failed to get messages");
+        }
+        return data;
+      } catch (error) {
+        console.log(error);
+        toast.error(error.message);
+      }
+    }
+  });
+
+  useEffect(()=>{
+    refetch()
+  }, [refetch,selectedConversation.otherUserId ])
+
+  console.log("messages lists", messages);
+
   return (
     <div className="relative flex flex-col  h-screen p-4 border-r border-gray-700">
       {/* top arrow nav */}
       <div className="z-10 flex gap-6 items-center p-2 border-b border-gray-700">
         <FaArrowLeftLong size={14} className="cursor-pointer" />
-        <p className="font-bold">Full Name</p>
+        <img
+          src={selectedConversation.userProfileImg || "/avatars/boy3.png"}
+          alt="User Avatar"
+          className="rounded-full w-8 h-8"
+        />
+        <p className="font-bold">{selectedConversation.fullName}</p>
       </div>
       <div className="flex flex-col overflow-y-scroll scrollbar">
         {/* chat with person's details */}
         <div className=" flex flex-col gap-2  items-center justify-center text-white py-4 px-2 mb-2 pb-8 border-b border-gray-700">
-
           {/* image username section */}
           <div className="flex items-center justify-center flex-col gap-1 mb-2">
             <img
-              src="/avatars/boy2.png"
+              src={selectedConversation.userProfileImg || "/avatars/boy3.png"}
               alt="User Avatar"
               className="rounded-full w-12 h-12"
             />
-            <p className="font-bold">Full Name</p>
-            <p className="text-gray-500 text-sm">@username</p>
+            <p className="font-bold">{selectedConversation.fullName}</p>
+            <p className="text-gray-500 text-sm">{selectedConversation.otherUsername}</p>
           </div>
           <p className="text-gray-500 text-sm">This is my bio</p>
           <p className="text-gray-500 text-sm">
@@ -55,105 +97,46 @@ const Conversations = () => {
 
         {/* chat messages section */}
         <div className=" flex flex-col mb-10">
-          <div>
-            <div className="chat chat-start">
-              <div className="chat-image avatar">
-                <div className="w-10 rounded-full">
-                  <img
-                    alt="Tailwind CSS chat bubble component"
-                    src="https://img.daisyui.com/images/stock/photo-1534528741775-53994a69daeb.jpg"
-                  />
-                </div>
-              </div>
+          {messages?.map((message) => {
+            return (
+              <Fragment key={message._id}>
+                {authUser?._id !== message?.sender.toString() && (
+                  <>
+                    {/* the message from other user */}
+                    <div className="chat chat-start">
+                      <div className="chat-image avatar">
+                        <div className="w-10 rounded-full">
+                          <img
+                            alt="Tailwind CSS chat bubble component"
+                            src={selectedConversation.userProfileImg || '/avatars/boy3.png'}
+                          />
+                        </div>
+                      </div>
 
-              <div className="chat-bubble rounded-xl">
-                You were the Chosen One!
-              </div>
-              <div className="chat-footer opacity-50">
-                <time className="text-xs opacity-50">12:46</time>
-              </div>
-            </div>
-
-            <div className="chat chat-end">
-              <div className="chat-bubble rounded-xl">I hate you!</div>
-              <div className="chat-footer opacity-50">Seen at 12:46</div>
-            </div>
-          </div>
-
-          <div>
-            <div className="chat chat-start">
-              <div className="chat-image avatar">
-                <div className="w-10 rounded-full">
-                  <img
-                    alt="Tailwind CSS chat bubble component"
-                    src="https://img.daisyui.com/images/stock/photo-1534528741775-53994a69daeb.jpg"
-                  />
-                </div>
-              </div>
-
-              <div className="chat-bubble rounded-xl">
-                You were the Chosen One!
-              </div>
-              <div className="chat-footer opacity-50">
-                <time className="text-xs opacity-50">12:46</time>
-              </div>
-            </div>
-
-            <div className="chat chat-end">
-              <div className="chat-bubble rounded-xl">I hate you!</div>
-              <div className="chat-footer opacity-50">Seen at 12:46</div>
-            </div>
-          </div>
-
-          <div>
-            <div className="chat chat-start">
-              <div className="chat-image avatar">
-                <div className="w-10 rounded-full">
-                  <img
-                    alt="Tailwind CSS chat bubble component"
-                    src="https://img.daisyui.com/images/stock/photo-1534528741775-53994a69daeb.jpg"
-                  />
-                </div>
-              </div>
-
-              <div className="chat-bubble rounded-xl">
-                You were the Chosen One!
-              </div>
-              <div className="chat-footer opacity-50">
-                <time className="text-xs opacity-50">12:46</time>
-              </div>
-            </div>
-
-            <div className="chat chat-end">
-              <div className="chat-bubble rounded-xl">I hate you!</div>
-              <div className="chat-footer opacity-50">Seen at 12:46</div>
-            </div>
-          </div>
-
-          <div>
-            <div className="chat chat-start">
-              <div className="chat-image avatar">
-                <div className="w-10 rounded-full">
-                  <img
-                    alt="Tailwind CSS chat bubble component"
-                    src="https://img.daisyui.com/images/stock/photo-1534528741775-53994a69daeb.jpg"
-                  />
-                </div>
-              </div>
-
-              <div className="chat-bubble rounded-xl">
-                You were the Chosen One!
-              </div>
-              <div className="chat-footer opacity-50">
-                <time className="text-xs opacity-50">12:46</time>
-              </div>
-            </div>
-
-            <div className="chat chat-end">
-              <div className="chat-bubble rounded-xl">I hate you!</div>
-              <div className="chat-footer opacity-50">Seen at 12:46</div>
-            </div>
-          </div>
+                      <div className="chat-bubble rounded-xl">{message.text}</div>
+                      <div className="chat-footer opacity-50">
+                        <time className="text-xs opacity-50">12:46</time>
+                      </div>
+                    </div>
+                  </>
+                ) }
+                
+                { authUser._id === message.sender && (
+                  <>
+                    {/* my messages */}
+                    <div className="chat chat-end">
+                      <div className="chat-bubble rounded-xl">
+                        {message.text}
+                      </div>
+                      <div className="chat-footer opacity-50">
+                        Seen at 12:46
+                      </div>
+                    </div>
+                  </>
+                )}
+              </Fragment>
+            );
+          })}
         </div>
       </div>
 

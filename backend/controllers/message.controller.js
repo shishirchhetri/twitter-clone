@@ -90,7 +90,17 @@ export const getConversations = async (req, res) => {
     // he is involved in conversations
     const conversations = await Conversation.find({
       participants: { $in: userId },
+    }).populate({
+      path: 'participants',
+      select:'fullName username profileImg'
     });
+
+    // remove the current user from the participants array
+		conversations.forEach((conversation) => {
+			conversation.participants = conversation.participants.filter(
+				(participant) => participant._id.toString() !== userId.toString()
+			);
+		});
 
     res.status(200).json(conversations);
   } catch (error) {
