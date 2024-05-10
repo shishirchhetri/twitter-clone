@@ -1,11 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
-import React, { useCallback } from "react";
-import { BsCheck, BsCheck2All } from "react-icons/bs";
+import React, { useEffect } from "react";
 
 const ConversationList = ({
   conversation,
   setSelectedConversation,
   selectedConversation,
+  setOpenMessages
 }) => {
   //getting the info of current logged in user
   const { data: authUser } = useQuery({
@@ -22,15 +22,20 @@ const ConversationList = ({
   }
 
   const switchConversation = () => {
+    setOpenMessages(true);
     setSelectedConversation({
       _id: conversation._id,
       otherUserId: conversation.participants[0]._id,
       userProfileImg: conversation.participants[0].profileImg,
+      username: conversation.participants[0].username,
       fullName: conversation.participants[0].fullName,
+      mock:conversation.mock
     });
-    console.log('otherUserId',conversation.participants[0]._id)
   };
 
+  // useEffect(()=>{
+  //   window.location.reload()
+  // }, [selectedConversation])
   return (
     <div
       className={`py-4 p-2 flex items-center gap-3 border-y border-gray-700 hover:bg-stone-900 cursor-pointer ${
@@ -41,14 +46,14 @@ const ConversationList = ({
       <div className="">
         <img
           src={conversation.participants[0].profileImg || "/avatars/boy3.png"}
-          alt=""
+          alt="avatar"
           className="h-12 w-12 rounded-full shrink-0"
         />
       </div>
       <div className="flex flex-col gap-2">
         <div className="flex flex-row gap-1">
           <p className="font-bold">
-            {conversation.participants[0].fullName} <span>·</span>{" "}
+            {conversation.participants[0].username} <span>·</span>{" "}
             <span className="font-semibold">2 hr</span>
           </p>
         </div>
