@@ -5,7 +5,8 @@ const ConversationList = ({
   conversation,
   setSelectedConversation,
   selectedConversation,
-  setOpenMessages
+  setOpenMessages,
+  isOnline,
 }) => {
   //getting the info of current logged in user
   const { data: authUser } = useQuery({
@@ -29,7 +30,7 @@ const ConversationList = ({
       userProfileImg: conversation.participants[0].profileImg,
       username: conversation.participants[0].username,
       fullName: conversation.participants[0].fullName,
-      mock:conversation.mock
+      mock: conversation.mock,
     });
   };
 
@@ -43,12 +44,13 @@ const ConversationList = ({
       }`}
       onClick={switchConversation}
     >
-      <div className="">
+      <div className="relative ">
         <img
           src={conversation.participants[0].profileImg || "/avatars/boy3.png"}
           alt="avatar"
-          className="h-12 w-12 rounded-full shrink-0"
+          className="h-12 w-12 rounded-full shrink-0 "
         />
+        <div className={`z-10 h-[10px] w-[10px] rounded-full absolute top-0 right-0 ${isOnline ? 'bg-green-300' : 'bg-slate-400'} `}></div>
       </div>
       <div className="flex flex-col gap-2">
         <div className="flex flex-row gap-1">

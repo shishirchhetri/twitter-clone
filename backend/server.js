@@ -11,6 +11,7 @@ import notificationRoute from './routes/notification.route.js';
 import messageRoute from './routes/message.route.js';
 
 import connectMongo from './db/connectMongoDB.js';
+import { app, server } from './socket/socket.js';
 
 dotenv.config();
 //cloudinary image update config
@@ -20,7 +21,6 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-const app = express();
 const PORT = process.env.PORT;
 
 //resolving the path errors
@@ -52,7 +52,7 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
   connectMongo();
 });

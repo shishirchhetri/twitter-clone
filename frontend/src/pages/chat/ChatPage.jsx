@@ -1,21 +1,23 @@
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import toast from "react-hot-toast";
+import { TbMessagePlus } from "react-icons/tb";
+import { IoSettingsOutline } from "react-icons/io5";
+
 import ConversationList from "./ConversationList";
 import Conversations from "./Conversations";
 import EmptyConversation from "./EmptyConversation";
-import { useState } from "react";
-import toast from "react-hot-toast";
-import { IoSettingsOutline } from "react-icons/io5";
 import ConversationListSkeleton from "../../components/skeletons/ConversationListSkeleton";
-import SearchInput from "../../components/common/SearchInput";
-import { TbMessagePlus } from "react-icons/tb";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
+import { useSocket } from "../../context/socketContext";
 
 const ChatPage = () => {
   const [selectedConversation, setSelectedConversation] = useState({});
   const [searchText, setSearchText] = useState("");
   const [isSearchingConvo, setIsSearchingConvo] = useState(false);
-  //for loading the messages only after clicking the certain list
+  //for loading the messages only after clicking the conversation list
   const [openMessages, setOpenMessages] = useState(false);
+  const {onlineUsers, socket} = useSocket();
 
   // //getting all the lists of conversations
   const { data: conversations, isPending: isConversationsLoading } = useQuery({
@@ -83,7 +85,6 @@ const ChatPage = () => {
           username: searchedUser.username,
           fullName: searchedUser.fullName,
           userProfileImg: searchedUser.profileImg,
-         
         });
 
         return;
@@ -112,19 +113,10 @@ const ChatPage = () => {
     } catch (error) {
       console.log(error);
       toast.error(error.message);
-    }finally{
+    } finally {
       setIsSearchingConvo(false);
     }
   };
-
-  //truncate the message to specific length
-  function truncate(str, maxLength) {
-    if (str.length <= maxLength) {
-      return str; // Return the original string if it's already shorter than or equal to the maxLength
-    } else {
-      return str.slice(0, maxLength) + "..."; // Return the truncated string with ellipsis
-    }
-  }
 
   return (
     <>
@@ -148,7 +140,6 @@ const ChatPage = () => {
           <div className="modal-box h-[90vh] bg-black rounded-xl">
             <div className=" text-white ">
               <h1 className="text-xl">New message</h1>
-              <SearchInput />
               {conversations?.map((conversation) => {
                 return (
                   <ConversationList
@@ -203,6 +194,7 @@ const ChatPage = () => {
                 setSelectedConversation={setSelectedConversation}
                 selectedConversation={selectedConversation}
                 setOpenMessages={setOpenMessages}
+                isOnline={onlineUsers.includes(conversation.participants[0]._id)}
               />
             );
           })
