@@ -1,6 +1,7 @@
 import {Server} from 'socket.io'
 import http from 'http'
 import express from 'express';
+import Message from '../models/message.model.js'
 
 const app = express();
 const server = http.createServer(app);
@@ -31,6 +32,15 @@ io.on('connection', (socket)=>{
     }
     //Object.keys converts the keys inside an object to array i.e. array of each userID eg: [1232,3232]
     io.emit('getOnlineUsers', Object.keys(userSocketMap)) 
+
+    socket.on('markMessagesAsSeen', async({conversationId, userId}) =>{
+        try{
+            await Message.updateMany({conversationId, seen: false}, {$set :{seen: true}})
+            io.to(userSocketMap[userId]).emit('messagesSeen', conversationId)
+        }catch(error){
+            console.log(error);
+        }
+    })
 
     socket.on('disconnect', ()=>{
         console.log('User disconnected ')

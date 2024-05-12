@@ -40,7 +40,6 @@ const Conversations = ({ selectedConversation, setConversationLists }) => {
         if (!res.ok) {
           throw new Error(data.error || "failed to send message");
         }
-
         return data;
       } catch (error) {
         console.log(error);
@@ -86,6 +85,7 @@ const Conversations = ({ selectedConversation, setConversationLists }) => {
   } = useQuery({
     queryKey: ["messages"],
     queryFn: async () => {
+      //do not run the query for the new conversation 
       if (selectedConversation.mock === true) {
         setAllMessages(null);
         return;
@@ -122,7 +122,7 @@ const Conversations = ({ selectedConversation, setConversationLists }) => {
       if(selectedConversation._id === message.conversationId){
         setAllMessages((prevMessages) => [...prevMessages, message]);
       }
-      
+
       setConversationLists((prev) => {
         const updatedConversation = prev.map((conversation) => {
           if (conversation._id === message.conversationId) {
@@ -154,8 +154,34 @@ const Conversations = ({ selectedConversation, setConversationLists }) => {
     messageEndRef?.current?.scrollIntoView({ behavior: "auto" });
   }, [allMessages]);
 
-  console.log("selectedConversation: ", selectedConversation);
+  console.log('allMessages', allMessages)
 
+useEffect(()=> {
+  const lastMessageIsFromOtherUser = allMessages.length && allMessages[allMessages?.length-1].sender !== authUser._id
+  if(lastMessageIsFromOtherUser){
+    socket.emit('markMessagesAsSeen', {
+      conversationId : selectedConversation._id,
+      userId : selectedConversation.otherUserId,
+    })
+  }
+
+  socket.on('messagesSeen', ({conversationId})=>{
+    if(selectedConversation._id === conversationId){
+      setAllMessages(prev =>{
+        const updatedMessages = prev.map((message)=>{
+          if(!message.seen){
+            return {
+              ...message,
+              seen: true
+            }
+          }
+          return message;
+        })
+        return updatedMessages;
+      })
+    }
+  })
+}, [socket, authUser._id, allMessages, selectedConversation])
   return (
     <div className="relative flex flex-col  h-screen p-4 border-r border-gray-700">
       {/* top arrow nav */}
@@ -219,7 +245,7 @@ const Conversations = ({ selectedConversation, setConversationLists }) => {
                           <div className="chat-image avatar">
                             <div className="w-10 rounded-full">
                               <img
-                                alt="Tailwind CSS chat bubble component"
+                                alt="avatar"
                                 src={
                                   selectedConversation.userProfileImg ||
                                   "/avatars/boy3.png"
@@ -228,8 +254,8 @@ const Conversations = ({ selectedConversation, setConversationLists }) => {
                             </div>
                           </div>
 
-                          <div className="chat-bubble rounded-xl">
-                            {message.text}
+                          <div className="chat-bubble rounded-xl flex ">
+                            {message.text} 
                           </div>
                           <div className="chat-footer opacity-50">
                             {/* <time className="text-xs opacity-50">12:46</time> */}
@@ -243,7 +269,7 @@ const Conversations = ({ selectedConversation, setConversationLists }) => {
                         {/* my messages */}
                         <div className="chat chat-end">
                           <div className="chat-bubble rounded-xl">
-                            {message.text}
+                            {message.text} <span>{message.seen ? 'seen' : ''}</span>
                           </div>
                           <div className="chat-footer opacity-50">
                             {/* Seen at 12:46 */}
