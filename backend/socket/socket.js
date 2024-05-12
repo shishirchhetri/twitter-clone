@@ -12,7 +12,11 @@ const io = new Server(server, {
     }
 });
 
-//userId : socketId
+export const getRecipientSocketId = (recipientId)=>{
+    return userSocketMap[recipientId];
+}
+
+//userId is passed as a socketId
 const userSocketMap = {}
 
 io.on('connection', (socket)=>{

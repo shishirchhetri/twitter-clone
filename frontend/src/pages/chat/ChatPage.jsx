@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 import { TbMessagePlus } from "react-icons/tb";
 import { IoSettingsOutline } from "react-icons/io5";
@@ -15,44 +15,40 @@ const ChatPage = () => {
   const [selectedConversation, setSelectedConversation] = useState({});
   const [searchText, setSearchText] = useState("");
   const [isSearchingConvo, setIsSearchingConvo] = useState(false);
-  //for loading the messages only after clicking the conversation list
-  const [openMessages, setOpenMessages] = useState(false);
-  const {onlineUsers, socket} = useSocket();
-
-  // //getting all the lists of conversations
-  const { data: conversations, isPending: isConversationsLoading } = useQuery({
-    queryKey: ["conversationList"],
-    queryFn: async () => {
-      try {
-        const res = await fetch("/api/messages/conversations", {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          throw new Error(data.error || "failed to fetch all conversations");
-        }
-        return data;
-      } catch (error) {
-        console.log(error);
-        toast.error(error.message);
-      }
-    },
-  });
-
-  // console.log("conversations: ", conversations);
-  console.log("selectedConversation: ", selectedConversation);
-
+  const { onlineUsers } = useSocket();
   const { data: authUser } = useQuery({ queryKey: ["authUser"] });
+  const [conversationLists, setConversationLists] = useState();
+
+  //getting all the lists of conversations
+  const { data: allConversationLists, isPending: isConversationListLoading } =
+    useQuery({
+      queryKey: ["conversationList"],
+      queryFn: async () => {
+        try {
+          const res = await fetch("/api/messages/conversations", {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            throw new Error(data.error || "failed to fetch all conversations");
+          }
+          setConversationLists(data);
+          return data;
+        } catch (error) {
+          console.log(error);
+          toast.error(error.message);
+        }
+      },
+    });
 
   const handleSearch = async (e) => {
     e.preventDefault();
     if (searchText === "") {
       return;
     }
-    console.log("searched text: ", searchText);
     try {
       const res = await fetch(`api/users/profile/${searchText}`, {
         method: "GET",
@@ -61,7 +57,6 @@ const ChatPage = () => {
         },
       });
       const searchedUser = await res.json();
-      console.log("sarched user", searchedUser);
 
       if (!res.ok) {
         throw new Error(searchedUser.error || "failed to search for users");
@@ -74,7 +69,7 @@ const ChatPage = () => {
       }
 
       //check if the conversation already exists
-      const conversationAlreadyExists = conversations.find(
+      const conversationAlreadyExists = conversationLists.find(
         (conversation) => conversation.participants[0]._id === searchedUser._id
       );
 
@@ -86,13 +81,12 @@ const ChatPage = () => {
           fullName: searchedUser.fullName,
           userProfileImg: searchedUser.profileImg,
         });
-
+        console.log(
+          "From search, selected convo after check: ",
+          selectedConversation
+        );
         return;
       }
-      console.log(
-        "From search, selected convo after check: ",
-        selectedConversation
-      );
 
       const mockConversation = {
         mock: true,
@@ -105,11 +99,16 @@ const ChatPage = () => {
           {
             _id: searchedUser._id,
             username: searchedUser.username,
+            fullName: searchText.fullName,
             profileImg: searchedUser.profileImg,
           },
         ],
       };
-      conversations.push(mockConversation);
+      setConversationLists((conversationList) => [
+        ...conversationList,
+        mockConversation,
+      ]);
+      console.log("conversationlist after pushing mock: ", conversationLists);
     } catch (error) {
       console.log(error);
       toast.error(error.message);
@@ -140,7 +139,7 @@ const ChatPage = () => {
           <div className="modal-box h-[90vh] bg-black rounded-xl">
             <div className=" text-white ">
               <h1 className="text-xl">New message</h1>
-              {conversations?.map((conversation) => {
+              {conversationLists?.map((conversation) => {
                 return (
                   <ConversationList
                     conversation={conversation}
@@ -176,9 +175,9 @@ const ChatPage = () => {
         </form>
 
         {/* conversation lists */}
-        {isConversationsLoading && <ConversationListSkeleton />}
+        {isConversationListLoading && <ConversationListSkeleton />}
         {/* show this if list of all the conversations is empty*/}
-        {conversations?.length === 0 ? (
+        {conversationLists?.length === 0 ? (
           <div
             className=" h-full p-2 flex items-center justify-center gap-3  hover:bg-stone-900 cursor-pointer"
             onClick={() => setSelectedConversation(1)}
@@ -186,15 +185,16 @@ const ChatPage = () => {
             <h1>No conversations</h1>
           </div>
         ) : (
-          conversations?.map((conversation) => {
+          conversationLists?.map((conversation) => {
             return (
               <ConversationList
                 conversation={conversation}
                 key={conversation._id}
                 setSelectedConversation={setSelectedConversation}
                 selectedConversation={selectedConversation}
-                setOpenMessages={setOpenMessages}
-                isOnline={onlineUsers.includes(conversation.participants[0]._id)}
+                isOnline={onlineUsers.includes(
+                  conversation.participants[0]._id
+                )}
               />
             );
           })
@@ -203,14 +203,13 @@ const ChatPage = () => {
 
       {/* conversation right panel */}
       <div className="flex-[2]">
-        {/* show empty message section if user donot select any conversation from list */}
+        {/* show empty message section if user donot select any conversation from list by default*/}
         {!selectedConversation._id ? (
           <EmptyConversation />
         ) : (
           <>
-            <Conversations
-              selectedConversation={selectedConversation}
-              openMessages={openMessages}
+            <Conversations selectedConversation={selectedConversation}
+            setConversationLists={setConversationLists}
             />
           </>
         )}

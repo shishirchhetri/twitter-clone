@@ -11,9 +11,9 @@ const EmptyConversation = () => {
         </p>
       </div>
       <div>
-        <button className="btn btn-primary rounded-full btn-md text-white px-4   items-center my-auto">
+        {/* <button className="btn btn-primary rounded-full btn-md text-white px-4   items-center my-auto">
           New Message
-        </button>
+        </button> */}
       </div>
     </div>
   );

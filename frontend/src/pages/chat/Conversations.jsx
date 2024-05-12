@@ -7,25 +7,24 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import ConversationSkeleton from "../../components/skeletons/ConversationSkeleton";
 import toast from "react-hot-toast";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
+import { useSocket } from "../../context/socketContext";
 
-const Conversations = ({ selectedConversation, openMessages }) => {
+const Conversations = ({ selectedConversation, setConversationLists }) => {
   const [text, setText] = useState("");
   const [img, setImg] = useState(null);
   const imgRef = useRef(null);
   const messageEndRef = useRef(null);
   const queryClient = useQueryClient();
+  const { socket } = useSocket();
+  const [allMessages, setAllMessages] = useState([]);
+
   const otherUserId = selectedConversation.otherUserId;
 
   //getting information of currently loggedin user
   const { data: authUser } = useQuery({ queryKey: ["authUser"] });
 
   //send message mutation
-  const {
-    mutate: sendMessage,
-    isPending: isSendingMessage,
-    refetch: loadMessage,
-    isRefetching: messageLoading,
-  } = useMutation({
+  const { mutate: sendMessage, isPending: isSendingMessage } = useMutation({
     mutationFn: async ({ text, otherUserId }) => {
       try {
         const res = await fetch("api/messages/", {
@@ -50,10 +49,9 @@ const Conversations = ({ selectedConversation, openMessages }) => {
     },
     onSuccess: async (data) => {
       setText("");
-
       await Promise.all[
-        queryClient.invalidateQueries({ queryKey: ["messages"] }),
-        queryClient.invalidateQueries({ queryKey: ["conversationList"] })
+        (queryClient.invalidateQueries({ queryKey: ["messages"] }),
+        queryClient.invalidateQueries({ queryKey: ["conversationList"] }))
       ];
     },
   });
@@ -83,17 +81,17 @@ const Conversations = ({ selectedConversation, openMessages }) => {
   const {
     data: messages,
     isPending: isMessagePending,
-    isLoading:isMessageLoading,
-    refetch,
-    isRefetching,
+    refetch: refetchAllMessages,
+    isRefetching: isRefetchingMessage,
   } = useQuery({
     queryKey: ["messages"],
     queryFn: async () => {
+      if (selectedConversation.mock === true) {
+        setAllMessages(null);
+        return;
+      }
+
       try {
-        if(selectedConversation.mock){
-          console.log('Mock conversation')
-          return;
-        }
         const res = await fetch(
           `/api/messages/${selectedConversation.otherUserId}`,
           {
@@ -108,21 +106,55 @@ const Conversations = ({ selectedConversation, openMessages }) => {
         if (!res.ok) {
           throw new Error(data.error || "failed to get messages");
         }
+        setAllMessages(data);
+        console.log("data", data);
         return data;
       } catch (error) {
         console.log(error);
         toast.error(error.message);
       }
     },
-   
   });
 
   useEffect(() => {
-    messageEndRef.current.scrollIntoView({ behavior: "auto" });
-    refetch();
-  }, [refetch, selectedConversation.otherUserId, messages]);
+    socket.on("newMessage", (message) => {
 
-  // console.log("messages lists", messages);
+      if(selectedConversation._id === message.conversationId){
+        setAllMessages((prevMessages) => [...prevMessages, message]);
+      }
+      
+      setConversationLists((prev) => {
+        const updatedConversation = prev.map((conversation) => {
+          if (conversation._id === message.conversationId) {
+            return {
+              ...conversation,
+              lastMessage: {
+                text: message.text,
+                sender: message.sender,
+              },
+            };
+          }
+          return conversation;
+        });
+        return updatedConversation;
+      });
+    });
+
+    //remove the event after unmounting
+    return () => socket.off("newMessage");
+  }, [allMessages, socket]);
+
+  useEffect(() => {
+    //refetching all the messages on change of selected conversation
+    refetchAllMessages();
+  }, [selectedConversation.otherUserId]);
+
+  useEffect(() => {
+    //auto scroll to latest message
+    messageEndRef?.current?.scrollIntoView({ behavior: "auto" });
+  }, [allMessages]);
+
+  console.log("selectedConversation: ", selectedConversation);
 
   return (
     <div className="relative flex flex-col  h-screen p-4 border-r border-gray-700">
@@ -138,81 +170,92 @@ const Conversations = ({ selectedConversation, openMessages }) => {
       </div>
 
       {/* messages section */}
-      <div
-        className="flex flex-col overflow-y-scroll scrollbar"
-        ref={messageEndRef}
-      >
-        {/* chat with person's details */}
-        <div className=" flex flex-col gap-2  items-center justify-center text-white py-4 px-2 mb-2 pb-8 border-b border-gray-700">
-          {/* image username section */}
-          <div className="flex items-center justify-center flex-col gap-1 mb-2">
-            <img
-              src={selectedConversation.userProfileImg || "/avatars/boy3.png"}
-              alt="User Avatar"
-              className="rounded-full w-12 h-12"
-            />
-            <p className="font-bold">{selectedConversation.fullName}</p>
-            <p className="text-gray-500 text-sm">
-              {selectedConversation.otherUsername}
-            </p>
-          </div>
-          <p className="text-gray-500 text-sm">This is my bio</p>
-          <p className="text-gray-500 text-sm">
-            Joined May 2017 · 106 Followers
-          </p>
-        </div>
-
+      <div className="flex flex-col overflow-y-scroll scrollbar">
         {/* chat messages section */}
         {isMessagePending ? (
           <ConversationSkeleton />
         ) : (
-          <div className=" flex flex-col mb-10">
-            {messages?.map((message) => {
-              return (
-                <Fragment key={message._id}>
-                  {authUser?._id !== message?.sender.toString() && (
-                    <>
-                      {/* the message from other user */}
-                      <div className="chat chat-start">
-                        <div className="chat-image avatar">
-                          <div className="w-10 rounded-full">
-                            <img
-                              alt="Tailwind CSS chat bubble component"
-                              src={
-                                selectedConversation.userProfileImg ||
-                                "/avatars/boy3.png"
-                              }
-                            />
+          <>
+            {/* chat with person's details */}
+            <div className=" flex flex-col gap-2  items-center justify-center text-white py-4 px-2 mb-2 pb-8 border-b border-gray-700">
+              {/* image username section */}
+              <div className="flex items-center justify-center flex-col gap-1 mb-2">
+                <img
+                  src={
+                    selectedConversation.userProfileImg || "/avatars/boy3.png"
+                  }
+                  alt="User Avatar"
+                  className="rounded-full w-12 h-12"
+                />
+                <p className="font-bold">
+                  {selectedConversation.fullName ||
+                    selectedConversation.username}
+                </p>
+                <p className="text-gray-500 text-sm">
+                  {selectedConversation.otherUsername}
+                </p>
+              </div>
+              <p className="text-gray-500 text-sm">This is my bio</p>
+              <p className="text-gray-500 text-sm">
+                Joined May 2017 · 106 Followers
+              </p>
+            </div>
+
+            <div className=" flex flex-col mb-10">
+              {allMessages?.map((message) => {
+                return (
+                  <div
+                    key={message._id}
+                    ref={
+                      allMessages.length - 1 === allMessages.indexOf(message)
+                        ? messageEndRef
+                        : null
+                    }
+                  >
+                    {authUser?._id !== message?.sender.toString() && (
+                      <>
+                        {/* the message from other user */}
+                        <div className="chat chat-start">
+                          <div className="chat-image avatar">
+                            <div className="w-10 rounded-full">
+                              <img
+                                alt="Tailwind CSS chat bubble component"
+                                src={
+                                  selectedConversation.userProfileImg ||
+                                  "/avatars/boy3.png"
+                                }
+                              />
+                            </div>
+                          </div>
+
+                          <div className="chat-bubble rounded-xl">
+                            {message.text}
+                          </div>
+                          <div className="chat-footer opacity-50">
+                            {/* <time className="text-xs opacity-50">12:46</time> */}
                           </div>
                         </div>
+                      </>
+                    )}
 
-                        <div className="chat-bubble rounded-xl">
-                          {message.text}
+                    {authUser._id === message.sender && (
+                      <>
+                        {/* my messages */}
+                        <div className="chat chat-end">
+                          <div className="chat-bubble rounded-xl">
+                            {message.text}
+                          </div>
+                          <div className="chat-footer opacity-50">
+                            {/* Seen at 12:46 */}
+                          </div>
                         </div>
-                        <div className="chat-footer opacity-50">
-                          <time className="text-xs opacity-50">12:46</time>
-                        </div>
-                      </div>
-                    </>
-                  )}
-
-                  {authUser._id === message.sender && (
-                    <>
-                      {/* my messages */}
-                      <div className="chat chat-end">
-                        <div className="chat-bubble rounded-xl">
-                          {message.text}
-                        </div>
-                        <div className="chat-footer opacity-50">
-                          Seen at 12:46
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </Fragment>
-              );
-            })}
-          </div>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </>
         )}
       </div>
 
@@ -269,5 +312,4 @@ const Conversations = ({ selectedConversation, openMessages }) => {
     </div>
   );
 };
-
 export default Conversations;

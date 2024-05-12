@@ -1,6 +1,7 @@
 import express from "express";
 import Conversation from "../models/conversation.model.js";
 import Message from "../models/message.model.js";
+import { getRecipientSocketId,io } from "../socket/socket.js";
 
 //send message controller
 export const sendMessage = async (req, res) => {
@@ -45,6 +46,13 @@ export const sendMessage = async (req, res) => {
         },
       }),
     ]);
+
+    //sending the message to the recipient through socket 
+    const recipientSocketId = getRecipientSocketId(recipientId);
+    if(recipientSocketId){
+      io.to(recipientSocketId).emit('newMessage', newMessage);
+      console.log('new message from server',newMessage)
+    }
 
     return res.status(201).json(newMessage);
   } catch (error) {
