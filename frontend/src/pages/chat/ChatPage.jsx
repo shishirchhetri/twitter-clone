@@ -171,7 +171,7 @@ const ChatPage = () => {
 
   return (
     <>
-      <div className="flex-[1.5] border-l border-r border-gray-700 min-h-screen ">
+      <div className="flex-[1.1] border-l border-r border-gray-700 min-h-screen ">
         <div className="flex justify-between items-center p-4  border-b border-gray-700">
           <p className="font-bold">Messages</p>
 

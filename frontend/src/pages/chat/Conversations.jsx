@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { FaArrowLeftLong } from "react-icons/fa6";
 import { CiImageOn } from "react-icons/ci";
-import { BsEmojiSmileFill,BsCheck2All } from "react-icons/bs";
+import { BsEmojiSmileFill, BsCheck2All } from "react-icons/bs";
 import { IoCloseSharp } from "react-icons/io5";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import ConversationSkeleton from "../../components/skeletons/ConversationSkeleton";
@@ -9,7 +9,11 @@ import toast from "react-hot-toast";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 import { useSocket } from "../../context/socketContext";
 
-const Conversations = ({ selectedConversation, allMessages, setAllMessages }) => {
+const Conversations = ({
+  selectedConversation,
+  allMessages,
+  setAllMessages,
+}) => {
   const [text, setText] = useState("");
   const [img, setImg] = useState(null);
   const imgRef = useRef(null);
@@ -24,14 +28,14 @@ const Conversations = ({ selectedConversation, allMessages, setAllMessages }) =>
 
   //send message mutation
   const { mutate: sendMessage, isPending: isSendingMessage } = useMutation({
-    mutationFn: async ({ text, otherUserId }) => {
+    mutationFn: async ({ text, otherUserId, img }) => {
       try {
         const res = await fetch("api/messages/", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ recipientId: otherUserId, message: text }),
+          body: JSON.stringify({ recipientId: otherUserId, message: text, img }),
         });
 
         const data = await res.json();
@@ -47,6 +51,7 @@ const Conversations = ({ selectedConversation, allMessages, setAllMessages }) =>
     },
     onSuccess: async (data) => {
       setText("");
+      setImg('');
       await Promise.all[
         (queryClient.invalidateQueries({ queryKey: ["messages"] }),
         queryClient.invalidateQueries({ queryKey: ["conversationList"] }))
@@ -57,25 +62,26 @@ const Conversations = ({ selectedConversation, allMessages, setAllMessages }) =>
   //send message submit action
   const handleMessageSubmit = async (e) => {
     e.preventDefault();
-    if (text === "") {
+    if (text === "" && img === '') {
       return;
     }
-    
+
     try {
       // Immediately update UI with the new message
       setAllMessages((prevMessages) => [
         ...prevMessages,
-        { sender: authUser._id, text, seen: false }, // Assuming seen status is false initially
+        { sender: authUser._id, text,img, seen: false }, // Assuming seen status is false initially
       ]);
-  
+
       // Send the message
-      sendMessage({ text, otherUserId });
+      sendMessage({ text,img, otherUserId });
+      setImg('');
+      setText('');
     } catch (error) {
       console.error("Error sending message:", error);
       // Handle error
     }
   };
-  
 
   //handle imge upload
   const handleImgChange = (e) => {
@@ -84,10 +90,16 @@ const Conversations = ({ selectedConversation, allMessages, setAllMessages }) =>
       const reader = new FileReader();
       reader.onload = () => {
         setImg(reader.result);
+        console.log('img: ',img)
       };
       reader.readAsDataURL(file);
     }
   };
+
+  useEffect(() => {
+    // Log the value of img whenever it changes
+    console.log('img: ', img);
+  }, [img]);
 
   // for getting all the messages with the other user
   const {
@@ -98,7 +110,7 @@ const Conversations = ({ selectedConversation, allMessages, setAllMessages }) =>
   } = useQuery({
     queryKey: ["messages"],
     queryFn: async () => {
-      //do not run the query for the new conversation 
+      //do not run the query for the new conversation
       if (selectedConversation.mock === true) {
         setAllMessages(null);
         return;
@@ -128,8 +140,6 @@ const Conversations = ({ selectedConversation, allMessages, setAllMessages }) =>
     },
   });
 
- 
-
   useEffect(() => {
     //refetching all the messages on change of selected conversation
     refetchAllMessages();
@@ -140,33 +150,34 @@ const Conversations = ({ selectedConversation, allMessages, setAllMessages }) =>
     messageEndRef?.current?.scrollIntoView({ behavior: "auto" });
   }, [allMessages]);
 
-
-useEffect(()=> {
-  const lastMessageIsFromOtherUser = allMessages.length && allMessages[allMessages?.length-1].sender !== authUser._id
-  if(lastMessageIsFromOtherUser){
-    socket.emit('markMessagesAsSeen', {
-      conversationId : selectedConversation._id,
-      userId : selectedConversation.otherUserId,
-    })
-  }
-
-  socket.on('messagesSeen', ({conversationId})=>{
-    if(selectedConversation._id === conversationId){
-      setAllMessages(prev =>{
-        const updatedMessages = prev.map((message)=>{
-          if(!message.seen){
-            return {
-              ...message,
-              seen: true
-            }
-          }
-          return message;
-        })
-        return updatedMessages;
-      })
+  useEffect(() => {
+    const lastMessageIsFromOtherUser =
+      allMessages.length &&
+      allMessages[allMessages?.length - 1].sender !== authUser._id;
+    if (lastMessageIsFromOtherUser) {
+      socket.emit("markMessagesAsSeen", {
+        conversationId: selectedConversation._id,
+        userId: selectedConversation.otherUserId,
+      });
     }
-  })
-}, [socket, authUser._id, allMessages, selectedConversation])
+
+    socket.on("messagesSeen", ({ conversationId }) => {
+      if (selectedConversation._id === conversationId) {
+        setAllMessages((prev) => {
+          const updatedMessages = prev.map((message) => {
+            if (!message.seen) {
+              return {
+                ...message,
+                seen: true,
+              };
+            }
+            return message;
+          });
+          return updatedMessages;
+        });
+      }
+    });
+  }, [socket, authUser._id, allMessages, selectedConversation]);
   return (
     <div className="relative flex flex-col  h-screen p-4 border-r border-gray-700">
       {/* top arrow nav */}
@@ -206,10 +217,10 @@ useEffect(()=> {
                   {selectedConversation.otherUsername}
                 </p>
               </div>
-              <p className="text-gray-500 text-sm">This is my bio</p>
+              {/* <p className="text-gray-500 text-sm">This is my bio</p>
               <p className="text-gray-500 text-sm">
                 Joined May 2017 · 106 Followers
-              </p>
+              </p> */}
             </div>
 
             <div className=" flex flex-col mb-10">
@@ -239,9 +250,18 @@ useEffect(()=> {
                             </div>
                           </div>
 
-                          <div className="chat-bubble rounded-xl flex ">
-                            {message.text} 
-                          </div>
+                          {message.text && (
+                            <div className="chat-bubble rounded-xl flex ">
+                              {message.text}
+                            </div>
+                          )}
+                          {message.img && (
+                            <img
+                              src={message.img}
+                              className="w-[60%] object-contain rounded-lg border border-gray-700"
+                              alt=""
+                            />
+                          )}
                           <div className="chat-footer opacity-50">
                             {/* <time className="text-xs opacity-50">12:46</time> */}
                           </div>
@@ -253,9 +273,27 @@ useEffect(()=> {
                       <>
                         {/* my messages */}
                         <div className="chat chat-end">
-                          <div className="chat-bubble rounded-xl flex gap-2 justify-between items-center">
-                            {message.text} <span>{message.seen ? <BsCheck2All className="fill-blue-500"/> : <BsCheck2All className="fill-slate-500"/>}</span>
-                          </div>
+                          {message.text && (
+                            <div className="chat-bubble rounded-xl flex gap-2 justify-between items-center">
+                              {message.text}{" "}
+                              <span>
+                                {message.seen ? (
+                                  <BsCheck2All className="fill-blue-500" />
+                                ) : (
+                                  <BsCheck2All className="fill-slate-500" />
+                                )}
+                              </span>
+                            </div>
+                          )}
+                          {message.img && (
+                            <>
+                              <img
+                                src={message.img}
+                                className="w-[60%] object-contain rounded-lg border border-gray-700"
+                                alt=""
+                              />
+                            </>
+                          )}
                           <div className="chat-footer opacity-50">
                             {/* Seen at 12:46 */}
                           </div>
@@ -298,7 +336,7 @@ useEffect(()=> {
                 className="fill-primary w-6 h-6 cursor-pointer"
                 onClick={() => imgRef.current.click()}
               />
-              <BsEmojiSmileFill className="fill-primary w-5 h-5 cursor-pointer" />
+              {/* <BsEmojiSmileFill className="fill-primary w-5 h-5 cursor-pointer" /> */}
             </div>
             <input
               type="file"
@@ -314,9 +352,9 @@ useEffect(()=> {
               value={text}
               onChange={(e) => setText(e.target.value)}
             />
-            <button className="btn btn-primary rounded-full btn-sm text-white px-4">
+            <button className={`btn  btn-primary rounded-full btn-sm text-white px-4 ${isSendingMessage ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
               {isSendingMessage ? <LoadingSpinner size="xs" /> : "Send"}
-            </button>
+            </button> 
           </div>
         </form>
       </div>

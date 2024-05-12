@@ -2,19 +2,84 @@ import express from "express";
 import Conversation from "../models/conversation.model.js";
 import Message from "../models/message.model.js";
 import { getRecipientSocketId,io } from "../socket/socket.js";
+import { v2 as cloudinary } from 'cloudinary';
+
 
 //send message controller
+// export const sendMessage = async (req, res) => {
+//   try {
+//     const { recipientId, message,  } = req.body;
+//     let img = req.body;
+//     const senderId = req.user._id;
+
+//     //find the previous conversation between sender and receiver if it exists
+//     let conversation = await Conversation.findOne({
+//       participants: { $all: [senderId, recipientId] },
+//     });
+
+//     //create a new conversation if we don't have previous conversation
+//     if (!conversation) {
+//       conversation = new Conversation({
+//         participants: [senderId, recipientId],
+//         lastMessage: {
+//           text: message,
+//           sender: senderId,
+//         },
+//         img: img
+//       });
+
+//       await conversation.save();
+//     }
+
+//     if (img) {
+//       const uploadResponse = await cloudinary.uploader.upload(img);
+//       img = uploadResponse.secure_url;
+//     }
+
+//     //create new message if we do not have conversation before
+//     const newMessage = new Message({
+//       conversationId: conversation._id,
+//       sender: senderId,
+//       text: message,
+//       img: img || '',
+//     });
+
+//     //to run two async functions simultaneously
+//     await Promise.all([
+//       //save the message in db
+//       newMessage.save(),
+//       //update the last message sent
+//       conversation.updateOne({
+//         lastMessage: {
+//           text: message,
+//           sender: senderId,
+//         },
+//       }),
+//     ]);
+
+//     //sending the message to the recipient through socket 
+//     const recipientSocketId = getRecipientSocketId(recipientId);
+//     if(recipientSocketId){
+//       io.to(recipientSocketId).emit('newMessage', newMessage);
+//     }
+
+//     return res.status(201).json(newMessage);
+//   } catch (error) {
+//     console.log("error while sending message: ", error);
+//     res.status(500).json({ error: error.message });
+//   }
+// };
 export const sendMessage = async (req, res) => {
   try {
-    const { recipientId, message } = req.body;
+    const { recipientId, message, img } = req.body; // Extract img parameter from req.body
     const senderId = req.user._id;
 
-    //find the previous conversation between sender and receiver if it exists
+    // find the previous conversation between sender and receiver if it exists
     let conversation = await Conversation.findOne({
       participants: { $all: [senderId, recipientId] },
     });
 
-    //create a new conversation if we don't have previous conversation
+    // create a new conversation if we don't have a previous conversation
     if (!conversation) {
       conversation = new Conversation({
         participants: [senderId, recipientId],
@@ -27,18 +92,24 @@ export const sendMessage = async (req, res) => {
       await conversation.save();
     }
 
-    //create new message if we do not have conversation before
+    let uploadedImgUrl = '';
+    if (img) {
+      // If img exists, upload the image to cloudinary
+      const uploadResponse = await cloudinary.uploader.upload(img);
+      uploadedImgUrl = uploadResponse.secure_url;
+    }
+
+    // create a new message
     const newMessage = new Message({
       conversationId: conversation._id,
       sender: senderId,
       text: message,
+      img: uploadedImgUrl, // Use the uploaded image URL here
     });
 
-    //to run two async functions simultaneously
+    // save the message in the database and update the last message sent
     await Promise.all([
-      //save the message in db
       newMessage.save(),
-      //update the last message sent
       conversation.updateOne({
         lastMessage: {
           text: message,
@@ -47,9 +118,9 @@ export const sendMessage = async (req, res) => {
       }),
     ]);
 
-    //sending the message to the recipient through socket 
+    // sending the message to the recipient through socket
     const recipientSocketId = getRecipientSocketId(recipientId);
-    if(recipientSocketId){
+    if (recipientSocketId) {
       io.to(recipientSocketId).emit('newMessage', newMessage);
     }
 
@@ -59,6 +130,7 @@ export const sendMessage = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
 
 //get the previous messages if exists
 export const getMessages = async (req, res) => {
