@@ -16,6 +16,7 @@ const Conversations = ({
 }) => {
   const [text, setText] = useState("");
   const [img, setImg] = useState(null);
+  const [imageLoaded, setImageLoaded] = useState(false);
   const imgRef = useRef(null);
   const messageEndRef = useRef(null);
   const queryClient = useQueryClient();
@@ -35,7 +36,11 @@ const Conversations = ({
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ recipientId: otherUserId, message: text, img }),
+          body: JSON.stringify({
+            recipientId: otherUserId,
+            message: text,
+            img,
+          }),
         });
 
         const data = await res.json();
@@ -51,7 +56,7 @@ const Conversations = ({
     },
     onSuccess: async (data) => {
       setText("");
-      setImg('');
+      setImg("");
       await Promise.all[
         (queryClient.invalidateQueries({ queryKey: ["messages"] }),
         queryClient.invalidateQueries({ queryKey: ["conversationList"] }))
@@ -62,7 +67,7 @@ const Conversations = ({
   //send message submit action
   const handleMessageSubmit = async (e) => {
     e.preventDefault();
-    if (text === "" && img === '') {
+    if (text === "" && img === "") {
       return;
     }
 
@@ -70,13 +75,13 @@ const Conversations = ({
       // Immediately update UI with the new message
       setAllMessages((prevMessages) => [
         ...prevMessages,
-        { sender: authUser._id, text,img, seen: false }, // Assuming seen status is false initially
+        { sender: authUser._id, text, img, seen: false }, // Assuming seen status is false initially
       ]);
 
       // Send the message
-      sendMessage({ text,img, otherUserId });
-      setImg('');
-      setText('');
+      sendMessage({ text, img, otherUserId });
+      setImg("");
+      setText("");
     } catch (error) {
       console.error("Error sending message:", error);
       // Handle error
@@ -90,7 +95,7 @@ const Conversations = ({
       const reader = new FileReader();
       reader.onload = () => {
         setImg(reader.result);
-        console.log('img: ',img)
+        console.log("img: ", img);
       };
       reader.readAsDataURL(file);
     }
@@ -98,7 +103,7 @@ const Conversations = ({
 
   useEffect(() => {
     // Log the value of img whenever it changes
-    console.log('img: ', img);
+    console.log("img: ", img);
   }, [img]);
 
   // for getting all the messages with the other user
@@ -184,7 +189,7 @@ const Conversations = ({
       <div className="z-10 flex gap-6 items-center p-2 border-b border-gray-700">
         <FaArrowLeftLong size={14} className="cursor-pointer" />
         <img
-          src={selectedConversation.userProfileImg || "/avatars/boy3.png"}
+          src={selectedConversation.userProfileImg || "/avatars/avatar.png"}
           alt="User Avatar"
           className="rounded-full w-8 h-8"
         />
@@ -204,7 +209,7 @@ const Conversations = ({
               <div className="flex items-center justify-center flex-col gap-1 mb-2">
                 <img
                   src={
-                    selectedConversation.userProfileImg || "/avatars/boy3.png"
+                    selectedConversation.userProfileImg || "/avatars/avatar.png"
                   }
                   alt="User Avatar"
                   className="rounded-full w-12 h-12"
@@ -244,7 +249,7 @@ const Conversations = ({
                                 alt="avatar"
                                 src={
                                   selectedConversation.userProfileImg ||
-                                  "/avatars/boy3.png"
+                                  "/avatars/avatar.png"
                                 }
                               />
                             </div>
@@ -255,7 +260,21 @@ const Conversations = ({
                               {message.text}
                             </div>
                           )}
-                          {message.img && (
+
+                          {message.img && !imageLoaded && (
+                            <>
+                              <img
+                                src={message.img}
+                                className="w-[60%] object-contain rounded-lg border border-gray-700"
+                                alt=""
+                                hidden
+                                onLoad={() => setImageLoaded(true)}
+                              />
+                              <div className="skeleton w-[60%] object-contain rounded-lg border border-gray-700"></div>
+                            </>
+                          )}
+
+                          {message.img && imageLoaded && (
                             <img
                               src={message.img}
                               className="w-[60%] object-contain rounded-lg border border-gray-700"
@@ -285,14 +304,25 @@ const Conversations = ({
                               </span>
                             </div>
                           )}
-                          {message.img && (
+                          {message.img && !imageLoaded && (
                             <>
                               <img
                                 src={message.img}
                                 className="w-[60%] object-contain rounded-lg border border-gray-700"
                                 alt=""
+                                hidden
+                                onLoad={() => setImageLoaded(true)}
                               />
+                              <div className="skeleton w-[60%] object-contain rounded-lg border border-gray-700"></div>
                             </>
+                          )}
+
+                          {message.img && imageLoaded && (
+                            <img
+                              src={message.img}
+                              className="w-[60%] object-contain rounded-lg border border-gray-700"
+                              alt=""
+                            />
                           )}
                           <div className="chat-footer opacity-50">
                             {/* Seen at 12:46 */}
@@ -352,9 +382,13 @@ const Conversations = ({
               value={text}
               onChange={(e) => setText(e.target.value)}
             />
-            <button className={`btn  btn-primary rounded-full btn-sm text-white px-4 ${isSendingMessage ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
+            <button
+              className={`btn  btn-primary rounded-full btn-sm text-white px-4 ${
+                isSendingMessage ? "cursor-not-allowed" : "cursor-pointer"
+              }`}
+            >
               {isSendingMessage ? <LoadingSpinner size="xs" /> : "Send"}
-            </button> 
+            </button>
           </div>
         </form>
       </div>

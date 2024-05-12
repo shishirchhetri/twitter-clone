@@ -47,7 +47,7 @@ const ConversationList = ({
     >
       <div className="relative ">
         <img
-          src={conversation.participants[0].profileImg || "/avatars/boy3.png"}
+          src={conversation.participants[0].profileImg || "/avatars/avatar.png"}
           alt="avatar"
           className="h-12 w-12 rounded-full shrink-0 "
         />
