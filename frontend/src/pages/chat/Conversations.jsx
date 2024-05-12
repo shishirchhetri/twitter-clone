@@ -1,7 +1,7 @@
-import React, { Fragment, useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { FaArrowLeftLong } from "react-icons/fa6";
 import { CiImageOn } from "react-icons/ci";
-import { BsEmojiSmileFill } from "react-icons/bs";
+import { BsEmojiSmileFill,BsCheck2All } from "react-icons/bs";
 import { IoCloseSharp } from "react-icons/io5";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import ConversationSkeleton from "../../components/skeletons/ConversationSkeleton";
@@ -9,14 +9,13 @@ import toast from "react-hot-toast";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 import { useSocket } from "../../context/socketContext";
 
-const Conversations = ({ selectedConversation, setConversationLists }) => {
+const Conversations = ({ selectedConversation, allMessages, setAllMessages }) => {
   const [text, setText] = useState("");
   const [img, setImg] = useState(null);
   const imgRef = useRef(null);
   const messageEndRef = useRef(null);
   const queryClient = useQueryClient();
   const { socket } = useSocket();
-  const [allMessages, setAllMessages] = useState([]);
 
   const otherUserId = selectedConversation.otherUserId;
 
@@ -56,13 +55,27 @@ const Conversations = ({ selectedConversation, setConversationLists }) => {
   });
 
   //send message submit action
-  const handleMessageSubmit = (e) => {
+  const handleMessageSubmit = async (e) => {
     e.preventDefault();
     if (text === "") {
       return;
     }
-    sendMessage({ text, otherUserId });
+    
+    try {
+      // Immediately update UI with the new message
+      setAllMessages((prevMessages) => [
+        ...prevMessages,
+        { sender: authUser._id, text, seen: false }, // Assuming seen status is false initially
+      ]);
+  
+      // Send the message
+      sendMessage({ text, otherUserId });
+    } catch (error) {
+      console.error("Error sending message:", error);
+      // Handle error
+    }
   };
+  
 
   //handle imge upload
   const handleImgChange = (e) => {
@@ -107,7 +120,6 @@ const Conversations = ({ selectedConversation, setConversationLists }) => {
           throw new Error(data.error || "failed to get messages");
         }
         setAllMessages(data);
-        console.log("data", data);
         return data;
       } catch (error) {
         console.log(error);
@@ -116,33 +128,7 @@ const Conversations = ({ selectedConversation, setConversationLists }) => {
     },
   });
 
-  useEffect(() => {
-    socket.on("newMessage", (message) => {
-
-      if(selectedConversation._id === message.conversationId){
-        setAllMessages((prevMessages) => [...prevMessages, message]);
-      }
-
-      setConversationLists((prev) => {
-        const updatedConversation = prev.map((conversation) => {
-          if (conversation._id === message.conversationId) {
-            return {
-              ...conversation,
-              lastMessage: {
-                text: message.text,
-                sender: message.sender,
-              },
-            };
-          }
-          return conversation;
-        });
-        return updatedConversation;
-      });
-    });
-
-    //remove the event after unmounting
-    return () => socket.off("newMessage");
-  }, [allMessages, socket]);
+ 
 
   useEffect(() => {
     //refetching all the messages on change of selected conversation
@@ -154,7 +140,6 @@ const Conversations = ({ selectedConversation, setConversationLists }) => {
     messageEndRef?.current?.scrollIntoView({ behavior: "auto" });
   }, [allMessages]);
 
-  console.log('allMessages', allMessages)
 
 useEffect(()=> {
   const lastMessageIsFromOtherUser = allMessages.length && allMessages[allMessages?.length-1].sender !== authUser._id
@@ -268,8 +253,8 @@ useEffect(()=> {
                       <>
                         {/* my messages */}
                         <div className="chat chat-end">
-                          <div className="chat-bubble rounded-xl">
-                            {message.text} <span>{message.seen ? 'seen' : ''}</span>
+                          <div className="chat-bubble rounded-xl flex gap-2 justify-between items-center">
+                            {message.text} <span>{message.seen ? <BsCheck2All className="fill-blue-500"/> : <BsCheck2All className="fill-slate-500"/>}</span>
                           </div>
                           <div className="chat-footer opacity-50">
                             {/* Seen at 12:46 */}

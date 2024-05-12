@@ -1,11 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 import React from "react";
+import { BsCheck2All } from "react-icons/bs";
+
 
 const ConversationList = ({
   conversation,
   setSelectedConversation,
   selectedConversation,
   isOnline,
+  isSeen
 }) => {
   //getting the info of current logged in user
   const { data: authUser } = useQuery({
@@ -34,8 +37,6 @@ const ConversationList = ({
 
   };
 
-  // console.log('conversation after function', conversation)
-  // console.log('lastmessage: ', lastMessage);
 
   return (
     <div
@@ -61,7 +62,7 @@ const ConversationList = ({
         </div>
         <p className="text-gray-500 text-sm flex gap-3 items-center">
           {authUser._id === conversation.lastMessage.sender ? "You: " : ""}
-          {truncate(conversation.lastMessage.text, 24)}
+          {truncate(conversation.lastMessage.text, 24)} <span>{isSeen ? <BsCheck2All className="fill-blue-500"/> : <BsCheck2All className="fill-slate-500"/>}</span>
         </p>
       </div>
     </div>

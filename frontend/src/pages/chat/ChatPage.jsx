@@ -15,9 +15,12 @@ const ChatPage = () => {
   const [selectedConversation, setSelectedConversation] = useState({});
   const [searchText, setSearchText] = useState("");
   const [isSearchingConvo, setIsSearchingConvo] = useState(false);
-  const { onlineUsers } = useSocket();
-  const { data: authUser } = useQuery({ queryKey: ["authUser"] });
   const [conversationLists, setConversationLists] = useState();
+  const [allMessages, setAllMessages] = useState([]);
+  
+  const { onlineUsers, socket} = useSocket();
+  const { data: authUser } = useQuery({ queryKey: ["authUser"] });
+
 
   //getting all the lists of conversations
   const { data: allConversationLists, isPending: isConversationListLoading } =
@@ -117,6 +120,55 @@ const ChatPage = () => {
     }
   };
 
+  useEffect(() => {
+    socket?.on("newMessage", (message) => {
+
+      if(selectedConversation._id === message.conversationId){
+        setAllMessages((prevMessages) => [...prevMessages, message]);
+      }
+
+      setConversationLists((prev) => {
+        const updatedConversation = prev.map((conversation) => {
+          if (conversation._id === message.conversationId) {
+            return {
+              ...conversation,
+              lastMessage: {
+                text: message.text,
+                sender: message.sender,
+              },
+            };
+          }
+          return conversation;
+        });
+        return updatedConversation;
+      });
+    });
+
+    //remove the event after unmounting
+    return () => socket?.off("newMessage");
+  }, [allMessages, socket]);
+
+  useEffect(()=>{
+    socket?.on('messagesSeen', ({conversationId})=>{
+       setConversationLists( prev => {
+        const updatedConversation = prev.map((conversation)=>{
+          if(conversation._id === conversationId){
+            return{
+              ...conversation,
+              lastMessage:{
+                ...conversation.lastMessage,
+                seen: true
+              }
+            }
+          }
+          return conversation;
+
+        })
+        return updatedConversation;
+       })
+    })
+  },[socket, setConversationLists])
+
   return (
     <>
       <div className="flex-[1.5] border-l border-r border-gray-700 min-h-screen ">
@@ -146,6 +198,7 @@ const ChatPage = () => {
                     key={conversation._id}
                     setSelectedConversation={setSelectedConversation}
                     selectedConversation={selectedConversation}
+                    isSeen = {conversation.lastMessage.seen}
                   />
                 );
               })}
@@ -210,6 +263,8 @@ const ChatPage = () => {
           <>
             <Conversations selectedConversation={selectedConversation}
             setConversationLists={setConversationLists}
+            allMessages={allMessages}
+            setAllMessages={setAllMessages }
             />
           </>
         )}
