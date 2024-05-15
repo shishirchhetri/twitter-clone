@@ -1,6 +1,6 @@
 import express from "express";
 import { protectRoute } from "../middlewares/protectRoute.js";
-import { getUserProfile, followUnfollowUser, getSuggestedUsers , updateUserProfile } from "../controllers/user.controller.js";
+import { getUserProfile, followUnfollowUser, getSuggestedUsers , updateUserProfile, getUserByFullName } from "../controllers/user.controller.js";
 
 const router = express.Router();
 
@@ -15,5 +15,8 @@ router.post("/follow/:id", protectRoute, followUnfollowUser);
 
 //updating logged in user details
 router.post("/update", protectRoute, updateUserProfile);
+
+//search user by fullName
+router.get('/search/:fullName', getUserByFullName)
 
 export default router;

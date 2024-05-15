@@ -22,6 +22,33 @@ export const getUserProfile = async (req, res) => {
   }
 };
 
+//search for user in reference to the fullName
+export const getUserByFullName = async (req, res) => {
+  const { fullName } = req.params;
+
+  try {
+    // Create a regular expression for partial and case-insensitive matching
+    const regex = new RegExp(fullName, 'i');
+
+    // Find users whose fullName matches the regular expression
+    const users = await User.find({ fullName: regex }).select("_id username fullName profileImg");
+
+    if(!users){
+      return res.status(400).json({error: 'no user found with that name!'})
+    }
+
+    if (users.length === 0) {
+      return res.status(200).json([]);
+    }
+
+    return res.status(200).json(users);
+  } catch (error) {
+    console.log("Error in userProfile controller: ", error.message);
+    res.status(500).json({ error: "Internal server error!" });
+  }
+};
+
+
 //follow or unfollow the user controller
 export const followUnfollowUser = async (req, res) => {
   const { id } = req.params;
