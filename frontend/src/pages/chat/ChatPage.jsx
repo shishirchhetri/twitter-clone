@@ -18,9 +18,10 @@ const ChatPage = () => {
 
   const { onlineUsers, socket } = useSocket();
   const { data: authUser } = useQuery({ queryKey: ["authUser"] });
-  const {data: messages=[], refetch: refetchMessages}= useQuery({queryKey: ['messages']})
+  const { data: messages = [], refetch: refetchMessages } = useQuery({
+    queryKey: ["messages"],
+  });
   const queryClient = useQueryClient();
-
 
   //getting all the lists of conversations
   const { data: conversationLists, isPending: isConversationListLoading } =
@@ -53,6 +54,7 @@ const ChatPage = () => {
       return;
     }
     try {
+      setIsSearchingConvo(true)
       const res = await fetch(`api/users/profile/${searchText}`, {
         method: "GET",
         headers: {
@@ -104,17 +106,19 @@ const ChatPage = () => {
         ],
       };
       await Promise.all[
-        queryClient.setQueryData(['conversationLists'], (oldData) => [
+        queryClient.setQueryData(["conversationLists"], (oldData) => [
           ...oldData,
           mockConversation,
         ])
-      ]
-      refetchMessages()
+      ];
+      setSearchText('')
+      refetchMessages();
     } catch (error) {
       console.log(error);
       toast.error(error.message);
     } finally {
       setIsSearchingConvo(false);
+      
     }
   };
 
@@ -122,10 +126,13 @@ const ChatPage = () => {
   useEffect(() => {
     socket?.on("newMessage", (message) => {
       if (selectedConversation._id === message.conversationId) {
-        queryClient.setQueryData(['messages'],(prevMessages) => [...prevMessages, message]);
+        queryClient.setQueryData(["messages"], (prevMessages) => [
+          ...prevMessages,
+          message,
+        ]);
       }
 
-      queryClient.setQueryData(['conversationLists'],(prev) => {
+      queryClient.setQueryData(["conversationLists"], (prev) => {
         const updatedConversation = prev.map((conversation) => {
           if (conversation._id === message.conversationId) {
             return {
@@ -135,7 +142,7 @@ const ChatPage = () => {
                 sender: message.sender,
               },
             };
-          }else{
+          } else {
             return conversation;
           }
         });
@@ -150,7 +157,7 @@ const ChatPage = () => {
   //message seen feature
   useEffect(() => {
     socket?.on("messagesSeen", ({ conversationId }) => {
-      queryClient.setQueryData(['conversationLists'], (prev) => {
+      queryClient.setQueryData(["conversationLists"], (prev) => {
         const updatedConversation = prev.map((conversation) => {
           if (conversation._id === conversationId && conversation.lastMessage) {
             return {
@@ -170,7 +177,8 @@ const ChatPage = () => {
 
   return (
     <>
-      <div className="flex-[1.1] border-l border-r border-gray-700 min-h-screen ">
+      {/* Left Panel */}
+      <div className="flex-[1.1] border-l border-r border-gray-700 max-h-[100vh] overflow-y-hidden">
         <div className="flex justify-between items-center p-4  border-b border-gray-700">
           <p className="font-bold">Messages</p>
 
@@ -182,48 +190,8 @@ const ChatPage = () => {
             />
           </div>
         </div>
-        {/* <SearchUserModel /> */}
-        <dialog
-          id="new-message"
-          className="modal border-none bg-[rgba(155,218,239,0.3)]"
-        >
-          <div className="modal-box h-[90vh] bg-black rounded-xl">
-            <div className=" text-white ">
-              <form
-                action=""
-                onSubmit={handleSearch}
-                className="flex gap-2 items-center w-full px-2 p-4 "
-              >
-                <input
-                  type="text"
-                  className=" w-full px-3 p-2 rounded-xl  border-none focus:outline-none"
-                  placeholder="Search direct message"
-                  value={searchText}
-                  onChange={(e) => setSearchText(e.target.value)}
-                />
-                <button className="btn btn-primary rounded-full btn-sm text-white px-4">
-                  {isSearchingConvo ? <LoadingSpinner size="xs" /> : "Search"}
-                </button>
-              </form>
-              {conversationLists?.map((conversation) => {
-                return (
-                  <ConversationList
-                    conversation={conversation}
-                    key={conversation._id}
-                    setSelectedConversation={setSelectedConversation}
-                    selectedConversation={selectedConversation}
-                    isSeen={conversation.lastMessage.seen}
-                  />
-                );
-              })}
-            </div>
-          </div>
-          <form method="dialog" className="modal-backdrop"><h1 className="text-xl">New message</h1>
-            <button>close</button>
-          </form>
-        </dialog>
 
-        {/* searchbar */}
+        {/* Search Bar */}
         <form
           action=""
           onSubmit={handleSearch}
@@ -241,46 +209,87 @@ const ChatPage = () => {
           </button>
         </form>
 
-        {/* conversation lists */}
-        {isConversationListLoading && <ConversationListSkeleton />}
-        {/* show this if list of all the conversations is empty*/}
-        {conversationLists?.length === 0 ? (
-          <div
-            className=" h-full p-2 flex items-center justify-center gap-3  hover:bg-stone-900 cursor-pointer"
-            onClick={() => setSelectedConversation(1)}
-          >
-            <h1>No conversations</h1>
-          </div>
-        ) : (
-          conversationLists?.map((conversation) => {
-            return (
-              <>
-              <ConversationList
-                conversation={conversation}
-                key={conversation._id}
-                setSelectedConversation={setSelectedConversation}
-                selectedConversation={selectedConversation}
-                isOnline={onlineUsers.includes(
-                  conversation.participants[0]._id
-                )}
-              />
-            {console.log('conversation',conversation)}
-            </>
-            );
-          })
-        )}
+        {/* Conversation Lists */}
+        <div className="h-5/6 overflow-y-scroll  ">
+          {/* Show Skeleton if Loading */}
+          {isConversationListLoading && <ConversationListSkeleton />}
+          {/* Show Empty Message if No Conversations */}
+          {conversationLists?.length === 0 ? (
+            <div
+              className="h-full p-2 flex items-center justify-center gap-3  hover:bg-stone-900 cursor-pointer"
+            >
+              <h1>No conversations</h1>
+            </div>
+          ) : (
+            <div className="  ">
+              {conversationLists?.map((conversation) => {
+                return (
+                  <ConversationList
+                    conversation={conversation}
+                    key={conversation._id}
+                    setSelectedConversation={setSelectedConversation}
+                    selectedConversation={selectedConversation}
+                    isOnline={onlineUsers.includes(
+                      conversation.participants[0]._id
+                    )}
+                  />
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* conversation right panel */}
+      {/* new message dialog */}
+      <dialog
+        id="new-message"
+        className="modal border-none bg-[rgba(155,218,239,0.3)]"
+      >
+        <div className="modal-box h-[90vh] bg-black rounded-xl">
+          <div className=" text-white ">
+            <form
+              action=""
+              onSubmit={handleSearch}
+              className="flex gap-2 items-center w-full px-2 p-4 "
+            >
+              <input
+                type="text"
+                className=" w-full px-3 p-2 rounded-xl  border-none focus:outline-none"
+                placeholder="Search direct message"
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+              />
+              <button className="btn btn-primary rounded-full btn-sm text-white px-4">
+                {isSearchingConvo ? <LoadingSpinner size="xs" /> : "Search"}
+              </button>
+            </form>
+            {conversationLists?.map((conversation) => {
+              return (
+                <ConversationList
+                  conversation={conversation}
+                  key={conversation._id}
+                  setSelectedConversation={setSelectedConversation}
+                  selectedConversation={selectedConversation}
+                  isSeen={conversation.lastMessage.seen}
+                />
+              );
+            })}
+          </div>
+        </div>
+        <form method="dialog" className="modal-backdrop">
+          <h1 className="text-xl">New message</h1>
+          <button>close</button>
+        </form>
+      </dialog>
+
+      {/* Right Panel */}
       <div className="flex-[2]">
-        {/* show empty message section if user donot select any conversation from list by default*/}
+        {/* Show Empty Conversation or Selected Conversation */}
         {!selectedConversation._id ? (
           <EmptyConversation />
         ) : (
           <>
-            <Conversations
-              selectedConversation={selectedConversation}
-            />
+            <Conversations selectedConversation={selectedConversation} setSelectedConversation={setSelectedConversation} />
           </>
         )}
       </div>

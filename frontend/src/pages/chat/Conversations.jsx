@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { FaArrowLeftLong } from "react-icons/fa6";
+import { FaTrash } from "react-icons/fa";
 import { CiImageOn } from "react-icons/ci";
 import { BsCheck2All } from "react-icons/bs";
 import { IoCloseSharp } from "react-icons/io5";
@@ -9,9 +10,7 @@ import toast from "react-hot-toast";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 import { useSocket } from "../../context/socketContext";
 
-const Conversations = ({
-  selectedConversation
-}) => {
+const Conversations = ({ selectedConversation,setSelectedConversation }) => {
   const [text, setText] = useState("");
   const [img, setImg] = useState(null);
   const [imageLoaded, setImageLoaded] = useState(false);
@@ -19,11 +18,9 @@ const Conversations = ({
   const messageEndRef = useRef(null);
   const queryClient = useQueryClient();
   const { socket } = useSocket();
-  
 
   //the id of the user to whom we want to send message
   const otherUserId = selectedConversation.otherUserId;
-
 
   //getting information of currently loggedin user
   const { data: authUser } = useQuery({ queryKey: ["authUser"] });
@@ -58,14 +55,12 @@ const Conversations = ({
     onSuccess: async (data) => {
       setText("");
       setImg("");
-      queryClient.invalidateQueries({ queryKey: ["conversationLists"] })
+      queryClient.invalidateQueries({ queryKey: ["conversationLists"] });
       // await Promise.all[
       //   // (queryClient.invalidateQueries({ queryKey: ["messages"] }),
       // ];
     },
   });
-
-  
 
   //handle imge upload
   const handleImgChange = (e) => {
@@ -82,7 +77,7 @@ const Conversations = ({
 
   // for getting all the messages with the other user
   const {
-    data: messages=[],
+    data: messages = [],
     isPending: isMessagePending,
     refetch: refetchMessages,
     isRefetching: isRefetchingMessage,
@@ -91,8 +86,8 @@ const Conversations = ({
     queryFn: async () => {
       //do not run the query for the mock /new conversation
       if (selectedConversation.mock === true) {
-        messages= [];
         return messages;
+
       }
 
       try {
@@ -119,7 +114,7 @@ const Conversations = ({
     },
   });
 
-//refetching all the messages on change of selected conversation
+  //refetching all the messages on change of selected conversation
   useEffect(() => {
     refetchMessages();
   }, [selectedConversation.otherUserId]);
@@ -129,7 +124,7 @@ const Conversations = ({
     messageEndRef?.current?.scrollIntoView({ behavior: "auto" });
   }, [messages]);
 
-  //message seend feature
+  //message seen feature
   useEffect(() => {
     const lastMessageIsFromOtherUser =
       messages &&
@@ -144,7 +139,7 @@ const Conversations = ({
 
     socket.on("messagesSeen", ({ conversationId }) => {
       if (selectedConversation._id === conversationId) {
-        queryClient.setQueryData(['messages'],(prev) => {
+        queryClient.setQueryData(["messages"], (prev) => {
           const updatedMessages = prev.map((message) => {
             if (!message.seen) {
               return {
@@ -160,54 +155,95 @@ const Conversations = ({
     });
   }, [socket, authUser._id, messages, selectedConversation]);
 
-//send message submit action
-const handleMessageSubmit = async (e) => {
-  e.preventDefault();
-  if (text === "" && img === "") {
-    return;
-  }
+  //send message submit action
+  const handleMessageSubmit = async (e) => {
+    e.preventDefault();
+    if (text === "" && img === "") {
+      return;
+    }
 
-  try {
-    // Immediately update UI with the new message
-    queryClient.setQueryData(['messages'],(prevMessages) => {
-      if (!Array.isArray(prevMessages)) {
-        prevMessages = [];
+    try {
+      // Immediately update UI with the new message
+      queryClient.setQueryData(["messages"], (prevMessages) => {
+        if (!Array.isArray(prevMessages)) {
+          prevMessages = [];
+        }
+
+        console.log("prevMessage:", prevMessages);
+
+        return [
+          ...prevMessages,
+          { sender: authUser._id, text, img, seen: false },
+        ];
+      });
+
+      // Send the message
+      sendMessage({ text, img, otherUserId });
+      setImg("");
+      setText("");
+    } catch (error) {
+      console.error("Error sending message:", error);
+    }
+  };
+
+  //delete conversation
+  const handleDeleteConversation = async () => {
+    if(selectedConversation._id === ('' || null || undefined)){
+      return ;
+    }
+    if(selectedConversation.mock === true){
+      return toast.error("You can't delete a conversation that you didn't start");
+    }
+    try {
+      const res = await fetch(
+        `/api/messages/delete/${selectedConversation._id}`,
+        {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Error while deleting conversation");
       }
-    
-      console.log('prevMessage:', prevMessages);
-      
-      return [
-        ...prevMessages,
-        { sender: authUser._id, text, img, seen: false },
-      ];
-    });
+      setSelectedConversation({});
+      queryClient.invalidateQueries({queryKey:['conversationLists']})
+      toast.success('conversation deleted successfully!')
+      return data;
+    } catch (error) {
+      console.error("Error deleting conversation:", error);
+      toast.error("error deleting conversation");
+    }
+  };
 
-    // Send the message
-    sendMessage({ text, img, otherUserId });
-    setImg("");
-    setText("");
-  } catch (error) {
-    console.error("Error sending message:", error);
-  }
-  }
-;
   return (
-    <div className="relative flex flex-col  h-screen p-4 border-r border-gray-700">
+    <div className="relative flex flex-col h-screen p-4 pt-2 border-r border-gray-700">
       {/* top arrow nav */}
-      <div className="z-10 flex gap-6 items-center p-2 border-b border-gray-700">
-        <FaArrowLeftLong size={14} className="cursor-pointer" />
-        <img
-          src={selectedConversation.userProfileImg || "/avatars/avatar.png"}
-          alt="User Avatar"
-          className="rounded-full w-8 h-8"
-        />
-        <p className="font-bold">{selectedConversation.username}</p>
+      <div className="z-10 flex items-center justify-between p-2 border-b border-gray-700">
+        <div className="flex gap-2 items-center">
+          <FaArrowLeftLong size={14} className="cursor-pointer" />
+          <img
+            src={selectedConversation.userProfileImg || "/avatars/avatar.png"}
+            alt="User Avatar"
+            className="rounded-full w-8 h-8"
+          />
+          <p className="font-bold">{selectedConversation.username}</p>
+        </div>
+        <div>
+          <FaTrash
+            className="cursor-pointer hover:text-red-500 mt-3 mr-3"
+            onClick={()=>document.getElementById('deleteConversation').showModal()}
+          />
+        </div>
       </div>
 
       {/* messages section */}
       <div className="flex flex-col overflow-y-scroll scrollbar">
         {/* chat messages section */}
-        {(isMessagePending || isRefetchingMessage) && !selectedConversation.mock ? (
+        {(isMessagePending || isRefetchingMessage) &&
+        !selectedConversation.mock ? (
           <ConversationSkeleton />
         ) : (
           <>
@@ -263,7 +299,7 @@ const handleMessageSubmit = async (e) => {
                           </div>
 
                           {message.text && (
-                            <div className="chat-bubble rounded-xl flex ">
+                            <div className="chat-bubble rounded-xl flex text-white">
                               {message.text}
                             </div>
                           )}
@@ -298,15 +334,15 @@ const handleMessageSubmit = async (e) => {
                     {authUser._id === message.sender && (
                       <>
                         {/* my messages */}
-                        <div className="chat chat-end">
+                        <div className="chat chat-end ">
                           {message.text && (
-                            <div className="chat-bubble rounded-xl flex gap-2 justify-between items-center">
+                            <div className="chat-bubble rounded-xl flex gap-2 justify-between items-center bg-blue-500 text-white">
                               {message.text}{" "}
                               <span>
                                 {message.text !== "" && message.seen ? (
-                                  <BsCheck2All className="fill-blue-500" />
+                                  <BsCheck2All className="fill-blue-900" />
                                 ) : (
-                                  <BsCheck2All className="fill-slate-500" />
+                                  <BsCheck2All className="fill-slate-200" />
                                 )}
                               </span>
                             </div>
@@ -351,6 +387,22 @@ const handleMessageSubmit = async (e) => {
           </>
         )}
       </div>
+        {/* //delete conversatio confirmation */}
+      <dialog
+        id="deleteConversation"
+        className="modal border-none bg-[rgba(155,218,239,0.3)]"
+      >
+        <div className="modal-box w-fit bg-black rounded-xl">
+          <div className=" flex flex-col gap-5 ">
+        <p className="font-semibold text-[18px]">Do you want to delete this conversation?</p>
+            <div className="flex gap-4 justify-center items-center m-3">
+              <button onClick={handleDeleteConversation} className="btn btn-primary rounded-full btn-sm text-white px-4 hover:bg-red-500">Delete</button>
+              <form action="" method="dialog"> <button className="btn btn-primary rounded-full btn-sm text-white px-4">Cancel</button></form>
+            </div>
+          </div>
+        </div>
+        
+      </dialog>
 
       {/* send message / Input field */}
       <div className="mt-3 z-20 bg-black absolute bottom-1 right-1 left-1 border-t border-gray-700">

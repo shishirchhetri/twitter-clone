@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import React from "react";
 import { BsCheck2All } from "react-icons/bs";
 
@@ -9,11 +9,11 @@ const ConversationList = ({
   isOnline,
   isSeen
 }) => {
+  const queryClient = useQueryClient();
   //getting the info of current logged in user
   const { data: authUser } = useQuery({
     queryKey: ["authUser"],
   });
-
 
   //truncate the long messages
   function truncate(str, maxLength) {
@@ -25,8 +25,6 @@ const ConversationList = ({
   }
 
   const switchConversation = () => {
-    console.log('selectedConversation before',selectedConversation)
-
     setSelectedConversation({
       _id: conversation._id,
       otherUserId: conversation.participants[0]._id,
@@ -35,7 +33,7 @@ const ConversationList = ({
       fullName: conversation.participants[0].fullName,
       mock: conversation.mock,
     });
-    console.log('selectedConversation after',selectedConversation)
+    queryClient.invalidateQueries({queryKey:['messages']});
   };
 
 
