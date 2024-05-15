@@ -21,8 +21,8 @@ const Conversations = ({
   const messageEndRef = useRef(null);
   const queryClient = useQueryClient();
   const { socket } = useSocket();
-
   const otherUserId = selectedConversation.otherUserId;
+
 
   //getting information of currently loggedin user
   const { data: authUser } = useQuery({ queryKey: ["authUser"] });
@@ -72,11 +72,18 @@ const Conversations = ({
     }
 
     try {
+      // if selected conversation is a mock one
+      if(selectedConversation.mock ){
+        setAllMessages([])
+      }
       // Immediately update UI with the new message
-      setAllMessages((prevMessages) => [
-        ...prevMessages,
-        { sender: authUser._id, text, img, seen: false }, // Assuming seen status is false initially
-      ]);
+      setAllMessages((prevMessages) => {
+        console.log('prevMessage:', prevMessages)
+        return [
+          ...prevMessages,
+          { sender: authUser._id, text, img, seen: false }, // Assuming seen status is false initially
+        ]
+      });
 
       // Send the message
       sendMessage({ text, img, otherUserId });
@@ -84,7 +91,6 @@ const Conversations = ({
       setText("");
     } catch (error) {
       console.error("Error sending message:", error);
-      // Handle error
     }
   };
 
@@ -101,14 +107,9 @@ const Conversations = ({
     }
   };
 
-  useEffect(() => {
-    // Log the value of img whenever it changes
-    console.log("img: ", img);
-  }, [img]);
-
   // for getting all the messages with the other user
   const {
-    data: messages,
+    data: messages=[],
     isPending: isMessagePending,
     refetch: refetchAllMessages,
     isRefetching: isRefetchingMessage,
@@ -117,7 +118,7 @@ const Conversations = ({
     queryFn: async () => {
       //do not run the query for the new conversation
       if (selectedConversation.mock === true) {
-        setAllMessages(null);
+        setAllMessages([]);
         return;
       }
 
@@ -157,6 +158,7 @@ const Conversations = ({
 
   useEffect(() => {
     const lastMessageIsFromOtherUser =
+      allMessages &&
       allMessages.length &&
       allMessages[allMessages?.length - 1].sender !== authUser._id;
     if (lastMessageIsFromOtherUser) {
@@ -183,6 +185,8 @@ const Conversations = ({
       }
     });
   }, [socket, authUser._id, allMessages, selectedConversation]);
+
+
   return (
     <div className="relative flex flex-col  h-screen p-4 border-r border-gray-700">
       {/* top arrow nav */}
@@ -204,8 +208,7 @@ const Conversations = ({
         ) : (
           <>
             {/* chat with person's details */}
-            <div className=" flex flex-col gap-2  items-center justify-center text-white py-4 px-2 mb-2 pb-8 border-b border-gray-700">
-              {/* image username section */}
+            {/* <div className=" flex flex-col gap-2  items-center justify-center text-white py-4 px-2 mb-2 pb-8 border-b border-gray-700">
               <div className="flex items-center justify-center flex-col gap-1 mb-2">
                 <img
                   src={
@@ -222,13 +225,13 @@ const Conversations = ({
                   {selectedConversation.otherUsername}
                 </p>
               </div>
-              {/* <p className="text-gray-500 text-sm">This is my bio</p>
+              <p className="text-gray-500 text-sm">This is my bio</p>
               <p className="text-gray-500 text-sm">
                 Joined May 2017 · 106 Followers
-              </p> */}
-            </div>
+              </p>
+            </div> */}
 
-            <div className=" flex flex-col mb-10">
+            <div className=" flex flex-col  mb-10 ">
               {allMessages?.map((message) => {
                 return (
                   <div
@@ -260,7 +263,7 @@ const Conversations = ({
                               {message.text}
                             </div>
                           )}
-
+                          {/* make sure the sent image is scrolled properly */}
                           {message.img && !imageLoaded && (
                             <>
                               <img
@@ -296,7 +299,7 @@ const Conversations = ({
                             <div className="chat-bubble rounded-xl flex gap-2 justify-between items-center">
                               {message.text}{" "}
                               <span>
-                                {message.seen ? (
+                                {message.text !== "" && message.seen ? (
                                   <BsCheck2All className="fill-blue-500" />
                                 ) : (
                                   <BsCheck2All className="fill-slate-500" />
@@ -318,11 +321,18 @@ const Conversations = ({
                           )}
 
                           {message.img && imageLoaded && (
-                            <img
-                              src={message.img}
-                              className="w-[60%] object-contain rounded-lg border border-gray-700"
-                              alt=""
-                            />
+                            <>
+                              <img
+                                src={message.img}
+                                className="w-[60%] object-contain rounded-lg border border-gray-700"
+                                alt=""
+                              />
+                              {message.seen ? (
+                                <BsCheck2All className="fill-blue-500" />
+                              ) : (
+                                <BsCheck2All className="fill-slate-500" />
+                              )}
+                            </>
                           )}
                           <div className="chat-footer opacity-50">
                             {/* Seen at 12:46 */}

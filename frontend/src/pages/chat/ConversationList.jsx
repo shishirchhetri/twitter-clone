@@ -62,7 +62,7 @@ const ConversationList = ({
         </div>
         <p className="text-gray-500 text-sm flex gap-3 items-center">
           {authUser._id === conversation.lastMessage.sender ? "You: " : ""}
-          {truncate(conversation.lastMessage.text, 24)} <span>{isSeen ? <BsCheck2All className="fill-blue-500"/> : <BsCheck2All className="fill-slate-500"/>}</span>
+          {truncate(conversation.lastMessage.text, 24)} <span>{conversation.lastMessage.text!=='' && isSeen ? <BsCheck2All className="fill-blue-500"/> : <BsCheck2All className="fill-slate-500"/>}</span>
         </p>
       </div>
     </div>

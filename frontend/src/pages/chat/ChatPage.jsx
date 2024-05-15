@@ -16,11 +16,10 @@ const ChatPage = () => {
   const [searchText, setSearchText] = useState("");
   const [isSearchingConvo, setIsSearchingConvo] = useState(false);
   const [conversationLists, setConversationLists] = useState();
-  const [allMessages, setAllMessages] = useState([]);
-  
-  const { onlineUsers, socket} = useSocket();
-  const { data: authUser } = useQuery({ queryKey: ["authUser"] });
+  const [allMessages, setAllMessages] = useState([{}]);
 
+  const { onlineUsers, socket } = useSocket();
+  const { data: authUser } = useQuery({ queryKey: ["authUser"] });
 
   //getting all the lists of conversations
   const { data: allConversationLists, isPending: isConversationListLoading } =
@@ -68,7 +67,7 @@ const ChatPage = () => {
       //check if the user is trying to search himself
       const messagingYourself = searchedUser._id === authUser._id;
       if (messagingYourself) {
-        toast.error("you can't message yourself!");
+        return toast.error("you can't message yourself!");
       }
 
       //check if the conversation already exists
@@ -84,10 +83,6 @@ const ChatPage = () => {
           fullName: searchedUser.fullName,
           userProfileImg: searchedUser.profileImg,
         });
-        console.log(
-          "From search, selected convo after check: ",
-          selectedConversation
-        );
         return;
       }
 
@@ -111,7 +106,6 @@ const ChatPage = () => {
         ...conversationList,
         mockConversation,
       ]);
-      console.log("conversationlist after pushing mock: ", conversationLists);
     } catch (error) {
       console.log(error);
       toast.error(error.message);
@@ -120,10 +114,10 @@ const ChatPage = () => {
     }
   };
 
+  //newmessage instant update on ui
   useEffect(() => {
     socket?.on("newMessage", (message) => {
-
-      if(selectedConversation._id === message.conversationId){
+      if (selectedConversation._id === message.conversationId) {
         setAllMessages((prevMessages) => [...prevMessages, message]);
       }
 
@@ -137,8 +131,9 @@ const ChatPage = () => {
                 sender: message.sender,
               },
             };
+          }else{
+            return conversation;
           }
-          return conversation;
         });
         return updatedConversation;
       });
@@ -148,26 +143,26 @@ const ChatPage = () => {
     return () => socket?.off("newMessage");
   }, [allMessages, socket]);
 
-  useEffect(()=>{
-    socket?.on('messagesSeen', ({conversationId})=>{
-       setConversationLists( prev => {
-        const updatedConversation = prev.map((conversation)=>{
-          if(conversation._id === conversationId){
-            return{
+  //message seen feature
+  useEffect(() => {
+    socket?.on("messagesSeen", ({ conversationId }) => {
+      setConversationLists((prev) => {
+        const updatedConversation = prev.map((conversation) => {
+          if (conversation._id === conversationId && conversation.lastMessage) {
+            return {
               ...conversation,
-              lastMessage:{
+              lastMessage: {
                 ...conversation.lastMessage,
-                seen: true
-              }
-            }
+                seen: true,
+              },
+            };
           }
           return conversation;
-
-        })
+        });
         return updatedConversation;
-       })
-    })
-  },[socket, setConversationLists])
+      });
+    });
+  }, [socket, setConversationLists]);
 
   return (
     <>
@@ -190,7 +185,22 @@ const ChatPage = () => {
         >
           <div className="modal-box h-[90vh] bg-black rounded-xl">
             <div className=" text-white ">
-              <h1 className="text-xl">New message</h1>
+              <form
+                action=""
+                onSubmit={handleSearch}
+                className="flex gap-2 items-center w-full px-2 p-4 "
+              >
+                <input
+                  type="text"
+                  className=" w-full px-3 p-2 rounded-xl  border-none focus:outline-none"
+                  placeholder="Search direct message"
+                  value={searchText}
+                  onChange={(e) => setSearchText(e.target.value)}
+                />
+                <button className="btn btn-primary rounded-full btn-sm text-white px-4">
+                  {isSearchingConvo ? <LoadingSpinner size="xs" /> : "Search"}
+                </button>
+              </form>
               {conversationLists?.map((conversation) => {
                 return (
                   <ConversationList
@@ -198,13 +208,13 @@ const ChatPage = () => {
                     key={conversation._id}
                     setSelectedConversation={setSelectedConversation}
                     selectedConversation={selectedConversation}
-                    isSeen = {conversation.lastMessage.seen}
+                    isSeen={conversation.lastMessage.seen}
                   />
                 );
               })}
             </div>
           </div>
-          <form method="dialog" className="modal-backdrop">
+          <form method="dialog" className="modal-backdrop"><h1 className="text-xl">New message</h1>
             <button>close</button>
           </form>
         </dialog>
@@ -261,10 +271,11 @@ const ChatPage = () => {
           <EmptyConversation />
         ) : (
           <>
-            <Conversations selectedConversation={selectedConversation}
-            setConversationLists={setConversationLists}
-            allMessages={allMessages}
-            setAllMessages={setAllMessages }
+            <Conversations
+              selectedConversation={selectedConversation}
+              setConversationLists={setConversationLists}
+              allMessages={allMessages}
+              setAllMessages={setAllMessages}
             />
           </>
         )}
