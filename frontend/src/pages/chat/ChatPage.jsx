@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 import { TbMessagePlus } from "react-icons/tb";
@@ -15,16 +15,17 @@ const ChatPage = () => {
   const [selectedConversation, setSelectedConversation] = useState({});
   const [searchText, setSearchText] = useState("");
   const [isSearchingConvo, setIsSearchingConvo] = useState(false);
-  const [conversationLists, setConversationLists] = useState();
-  const [allMessages, setAllMessages] = useState([{}]);
 
   const { onlineUsers, socket } = useSocket();
   const { data: authUser } = useQuery({ queryKey: ["authUser"] });
+  const {data: messages=[], refetch: refetchMessages}= useQuery({queryKey: ['messages']})
+  const queryClient = useQueryClient();
+
 
   //getting all the lists of conversations
-  const { data: allConversationLists, isPending: isConversationListLoading } =
+  const { data: conversationLists, isPending: isConversationListLoading } =
     useQuery({
-      queryKey: ["conversationList"],
+      queryKey: ["conversationLists"],
       queryFn: async () => {
         try {
           const res = await fetch("/api/messages/conversations", {
@@ -37,7 +38,6 @@ const ChatPage = () => {
           if (!res.ok) {
             throw new Error(data.error || "failed to fetch all conversations");
           }
-          setConversationLists(data);
           return data;
         } catch (error) {
           console.log(error);
@@ -46,6 +46,7 @@ const ChatPage = () => {
       },
     });
 
+  //search for the conversation
   const handleSearch = async (e) => {
     e.preventDefault();
     if (searchText === "") {
@@ -97,15 +98,18 @@ const ChatPage = () => {
           {
             _id: searchedUser._id,
             username: searchedUser.username,
-            fullName: searchText.fullName,
+            fullName: searchedUser.fullName,
             profileImg: searchedUser.profileImg,
           },
         ],
       };
-      setConversationLists((conversationList) => [
-        ...conversationList,
-        mockConversation,
-      ]);
+      await Promise.all[
+        queryClient.setQueryData(['conversationLists'], (oldData) => [
+          ...oldData,
+          mockConversation,
+        ])
+      ]
+      refetchMessages()
     } catch (error) {
       console.log(error);
       toast.error(error.message);
@@ -118,10 +122,10 @@ const ChatPage = () => {
   useEffect(() => {
     socket?.on("newMessage", (message) => {
       if (selectedConversation._id === message.conversationId) {
-        setAllMessages((prevMessages) => [...prevMessages, message]);
+        queryClient.setQueryData(['messages'],(prevMessages) => [...prevMessages, message]);
       }
 
-      setConversationLists((prev) => {
+      queryClient.setQueryData(['conversationLists'],(prev) => {
         const updatedConversation = prev.map((conversation) => {
           if (conversation._id === message.conversationId) {
             return {
@@ -141,12 +145,12 @@ const ChatPage = () => {
 
     //remove the event after unmounting
     return () => socket?.off("newMessage");
-  }, [allMessages, socket]);
+  }, [messages, socket]);
 
   //message seen feature
   useEffect(() => {
     socket?.on("messagesSeen", ({ conversationId }) => {
-      setConversationLists((prev) => {
+      queryClient.setQueryData(['conversationLists'], (prev) => {
         const updatedConversation = prev.map((conversation) => {
           if (conversation._id === conversationId && conversation.lastMessage) {
             return {
@@ -162,7 +166,7 @@ const ChatPage = () => {
         return updatedConversation;
       });
     });
-  }, [socket, setConversationLists]);
+  }, [socket, conversationLists]);
 
   return (
     <>
@@ -250,6 +254,7 @@ const ChatPage = () => {
         ) : (
           conversationLists?.map((conversation) => {
             return (
+              <>
               <ConversationList
                 conversation={conversation}
                 key={conversation._id}
@@ -259,6 +264,8 @@ const ChatPage = () => {
                   conversation.participants[0]._id
                 )}
               />
+            {console.log('conversation',conversation)}
+            </>
             );
           })
         )}
@@ -273,9 +280,6 @@ const ChatPage = () => {
           <>
             <Conversations
               selectedConversation={selectedConversation}
-              setConversationLists={setConversationLists}
-              allMessages={allMessages}
-              setAllMessages={setAllMessages}
             />
           </>
         )}

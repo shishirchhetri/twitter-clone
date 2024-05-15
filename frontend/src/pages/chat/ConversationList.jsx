@@ -2,7 +2,6 @@ import { useQuery } from "@tanstack/react-query";
 import React from "react";
 import { BsCheck2All } from "react-icons/bs";
 
-
 const ConversationList = ({
   conversation,
   setSelectedConversation,
@@ -21,11 +20,13 @@ const ConversationList = ({
     if (str.length <= maxLength) {
       return str; // Return the original string if it's already shorter than or equal to the maxLength
     } else {
-      return str.slice(0, maxLength) + "..."; // Return the truncated string with ellipsis
+      return str.slice(0, switchConversationmaxLength) + "..."; // Return the truncated string with ellipsis
     }
   }
 
   const switchConversation = () => {
+    console.log('selectedConversation before',selectedConversation)
+
     setSelectedConversation({
       _id: conversation._id,
       otherUserId: conversation.participants[0]._id,
@@ -34,7 +35,7 @@ const ConversationList = ({
       fullName: conversation.participants[0].fullName,
       mock: conversation.mock,
     });
-
+    console.log('selectedConversation after',selectedConversation)
   };
 
 

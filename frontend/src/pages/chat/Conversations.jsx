@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { FaArrowLeftLong } from "react-icons/fa6";
 import { CiImageOn } from "react-icons/ci";
-import { BsEmojiSmileFill, BsCheck2All } from "react-icons/bs";
+import { BsCheck2All } from "react-icons/bs";
 import { IoCloseSharp } from "react-icons/io5";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import ConversationSkeleton from "../../components/skeletons/ConversationSkeleton";
@@ -10,9 +10,7 @@ import LoadingSpinner from "../../components/common/LoadingSpinner";
 import { useSocket } from "../../context/socketContext";
 
 const Conversations = ({
-  selectedConversation,
-  allMessages,
-  setAllMessages,
+  selectedConversation
 }) => {
   const [text, setText] = useState("");
   const [img, setImg] = useState(null);
@@ -21,6 +19,9 @@ const Conversations = ({
   const messageEndRef = useRef(null);
   const queryClient = useQueryClient();
   const { socket } = useSocket();
+  
+
+  //the id of the user to whom we want to send message
   const otherUserId = selectedConversation.otherUserId;
 
 
@@ -57,42 +58,14 @@ const Conversations = ({
     onSuccess: async (data) => {
       setText("");
       setImg("");
-      await Promise.all[
-        (queryClient.invalidateQueries({ queryKey: ["messages"] }),
-        queryClient.invalidateQueries({ queryKey: ["conversationList"] }))
-      ];
+      queryClient.invalidateQueries({ queryKey: ["conversationLists"] })
+      // await Promise.all[
+      //   // (queryClient.invalidateQueries({ queryKey: ["messages"] }),
+      // ];
     },
   });
 
-  //send message submit action
-  const handleMessageSubmit = async (e) => {
-    e.preventDefault();
-    if (text === "" && img === "") {
-      return;
-    }
-
-    try {
-      // if selected conversation is a mock one
-      if(selectedConversation.mock ){
-        setAllMessages([])
-      }
-      // Immediately update UI with the new message
-      setAllMessages((prevMessages) => {
-        console.log('prevMessage:', prevMessages)
-        return [
-          ...prevMessages,
-          { sender: authUser._id, text, img, seen: false }, // Assuming seen status is false initially
-        ]
-      });
-
-      // Send the message
-      sendMessage({ text, img, otherUserId });
-      setImg("");
-      setText("");
-    } catch (error) {
-      console.error("Error sending message:", error);
-    }
-  };
+  
 
   //handle imge upload
   const handleImgChange = (e) => {
@@ -111,15 +84,15 @@ const Conversations = ({
   const {
     data: messages=[],
     isPending: isMessagePending,
-    refetch: refetchAllMessages,
+    refetch: refetchMessages,
     isRefetching: isRefetchingMessage,
   } = useQuery({
     queryKey: ["messages"],
     queryFn: async () => {
-      //do not run the query for the new conversation
+      //do not run the query for the mock /new conversation
       if (selectedConversation.mock === true) {
-        setAllMessages([]);
-        return;
+        messages= [];
+        return messages;
       }
 
       try {
@@ -137,7 +110,7 @@ const Conversations = ({
         if (!res.ok) {
           throw new Error(data.error || "failed to get messages");
         }
-        setAllMessages(data);
+
         return data;
       } catch (error) {
         console.log(error);
@@ -146,21 +119,22 @@ const Conversations = ({
     },
   });
 
+//refetching all the messages on change of selected conversation
   useEffect(() => {
-    //refetching all the messages on change of selected conversation
-    refetchAllMessages();
+    refetchMessages();
   }, [selectedConversation.otherUserId]);
 
+  //auto scroll to the end of the chat
   useEffect(() => {
-    //auto scroll to latest message
     messageEndRef?.current?.scrollIntoView({ behavior: "auto" });
-  }, [allMessages]);
+  }, [messages]);
 
+  //message seend feature
   useEffect(() => {
     const lastMessageIsFromOtherUser =
-      allMessages &&
-      allMessages.length &&
-      allMessages[allMessages?.length - 1].sender !== authUser._id;
+      messages &&
+      messages.length &&
+      messages[messages?.length - 1].sender !== authUser._id;
     if (lastMessageIsFromOtherUser) {
       socket.emit("markMessagesAsSeen", {
         conversationId: selectedConversation._id,
@@ -170,7 +144,7 @@ const Conversations = ({
 
     socket.on("messagesSeen", ({ conversationId }) => {
       if (selectedConversation._id === conversationId) {
-        setAllMessages((prev) => {
+        queryClient.setQueryData(['messages'],(prev) => {
           const updatedMessages = prev.map((message) => {
             if (!message.seen) {
               return {
@@ -184,9 +158,39 @@ const Conversations = ({
         });
       }
     });
-  }, [socket, authUser._id, allMessages, selectedConversation]);
+  }, [socket, authUser._id, messages, selectedConversation]);
 
+//send message submit action
+const handleMessageSubmit = async (e) => {
+  e.preventDefault();
+  if (text === "" && img === "") {
+    return;
+  }
 
+  try {
+    // Immediately update UI with the new message
+    queryClient.setQueryData(['messages'],(prevMessages) => {
+      if (!Array.isArray(prevMessages)) {
+        prevMessages = [];
+      }
+    
+      console.log('prevMessage:', prevMessages);
+      
+      return [
+        ...prevMessages,
+        { sender: authUser._id, text, img, seen: false },
+      ];
+    });
+
+    // Send the message
+    sendMessage({ text, img, otherUserId });
+    setImg("");
+    setText("");
+  } catch (error) {
+    console.error("Error sending message:", error);
+  }
+  }
+;
   return (
     <div className="relative flex flex-col  h-screen p-4 border-r border-gray-700">
       {/* top arrow nav */}
@@ -203,7 +207,7 @@ const Conversations = ({
       {/* messages section */}
       <div className="flex flex-col overflow-y-scroll scrollbar">
         {/* chat messages section */}
-        {isMessagePending ? (
+        {(isMessagePending || isRefetchingMessage) && !selectedConversation.mock ? (
           <ConversationSkeleton />
         ) : (
           <>
@@ -232,12 +236,12 @@ const Conversations = ({
             </div> */}
 
             <div className=" flex flex-col  mb-10 ">
-              {allMessages?.map((message) => {
+              {messages?.map((message) => {
                 return (
                   <div
                     key={message._id}
                     ref={
-                      allMessages.length - 1 === allMessages.indexOf(message)
+                      messages.length - 1 === messages.indexOf(message)
                         ? messageEndRef
                         : null
                     }
@@ -245,7 +249,7 @@ const Conversations = ({
                     {authUser?._id !== message?.sender.toString() && (
                       <>
                         {/* the message from other user */}
-                        <div className="chat chat-start">
+                        <div className="chat chat-start ">
                           <div className="chat-image avatar">
                             <div className="w-10 rounded-full">
                               <img
