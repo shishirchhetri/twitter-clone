@@ -1,74 +1,10 @@
-import express from "express";
+import mongoose from "mongoose";
 import Conversation from "../models/conversation.model.js";
 import Message from "../models/message.model.js";
 import { getRecipientSocketId,io } from "../socket/socket.js";
 import { v2 as cloudinary } from 'cloudinary';
 
 
-//send message controller
-// export const sendMessage = async (req, res) => {
-//   try {
-//     const { recipientId, message,  } = req.body;
-//     let img = req.body;
-//     const senderId = req.user._id;
-
-//     //find the previous conversation between sender and receiver if it exists
-//     let conversation = await Conversation.findOne({
-//       participants: { $all: [senderId, recipientId] },
-//     });
-
-//     //create a new conversation if we don't have previous conversation
-//     if (!conversation) {
-//       conversation = new Conversation({
-//         participants: [senderId, recipientId],
-//         lastMessage: {
-//           text: message,
-//           sender: senderId,
-//         },
-//         img: img
-//       });
-
-//       await conversation.save();
-//     }
-
-//     if (img) {
-//       const uploadResponse = await cloudinary.uploader.upload(img);
-//       img = uploadResponse.secure_url;
-//     }
-
-//     //create new message if we do not have conversation before
-//     const newMessage = new Message({
-//       conversationId: conversation._id,
-//       sender: senderId,
-//       text: message,
-//       img: img || '',
-//     });
-
-//     //to run two async functions simultaneously
-//     await Promise.all([
-//       //save the message in db
-//       newMessage.save(),
-//       //update the last message sent
-//       conversation.updateOne({
-//         lastMessage: {
-//           text: message,
-//           sender: senderId,
-//         },
-//       }),
-//     ]);
-
-//     //sending the message to the recipient through socket 
-//     const recipientSocketId = getRecipientSocketId(recipientId);
-//     if(recipientSocketId){
-//       io.to(recipientSocketId).emit('newMessage', newMessage);
-//     }
-
-//     return res.status(201).json(newMessage);
-//   } catch (error) {
-//     console.log("error while sending message: ", error);
-//     res.status(500).json({ error: error.message });
-//   }
-// };
 export const sendMessage = async (req, res) => {
   try {
     const { recipientId, message, img } = req.body; // Extract img parameter from req.body
@@ -131,7 +67,6 @@ export const sendMessage = async (req, res) => {
   }
 };
 
-
 //get the previous messages if exists
 export const getMessages = async (req, res) => {
   const { otherUserId } = req.params;
@@ -172,7 +107,7 @@ export const getConversations = async (req, res) => {
     }).populate({
       path: 'participants',
       select:'fullName username profileImg'
-    });
+    }).sort({updatedAt: -1});
 
     // remove the current user from the participants array
 		conversations.forEach((conversation) => {
@@ -186,3 +121,31 @@ export const getConversations = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+//delete a conversation
+export const deleteConversation = async (req, res) => {
+  const { conversationId } = req.params;
+  try {
+    const conversationExists = await Conversation.findById(conversationId)
+    if(!conversationExists){
+      console.log('error: conversation doesnot exist');
+      return res.status(404).json({error: 'conversation doesnot exist'})
+    }
+    
+    // Delete the conversation from the database
+    await Conversation.findByIdAndDelete(conversationId);
+   
+    // Delete all messages related to the conversation
+    await Message.deleteMany({ conversationId });
+
+    res.status(200).json({ message: 'Conversation and related messages deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting conversation:', error);
+    res.status(500).json({ error: 'Failed to delete conversation and related messages' });
+  }
+};
+
+
+
+
+

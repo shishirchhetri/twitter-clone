@@ -2,6 +2,7 @@ import express from 'express';
 
 import { protectRoute } from '../middlewares/protectRoute.js';
 import {
+  deleteConversation,
   getConversations,
   getMessages,
   sendMessage,
@@ -17,6 +18,9 @@ router.post('/', protectRoute, sendMessage);
 
 // getting all the old messages
 router.get('/:otherUserId', protectRoute, getMessages);
+
+//delete a conversation
+router.delete('/delete/:conversationId', protectRoute, deleteConversation)
 
 
 export default router;
