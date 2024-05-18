@@ -4,13 +4,20 @@ import { FaTrash } from "react-icons/fa";
 import { CiImageOn } from "react-icons/ci";
 import { BsCheck2All } from "react-icons/bs";
 import { IoCloseSharp } from "react-icons/io5";
+import { IoClose } from "react-icons/io5";
+
+
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import ConversationSkeleton from "../../components/skeletons/ConversationSkeleton";
 import toast from "react-hot-toast";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 import { useSocket } from "../../context/socketContext";
 
-const Conversations = ({ selectedConversation,setSelectedConversation }) => {
+const Conversations = ({
+  selectedConversation,
+  setSelectedConversation,
+  setShowConversations,
+}) => {
   const [text, setText] = useState("");
   const [img, setImg] = useState(null);
   const [imageLoaded, setImageLoaded] = useState(false);
@@ -87,7 +94,6 @@ const Conversations = ({ selectedConversation,setSelectedConversation }) => {
       //do not run the query for the mock /new conversation
       if (selectedConversation.mock === true) {
         return messages;
-
       }
 
       try {
@@ -188,11 +194,13 @@ const Conversations = ({ selectedConversation,setSelectedConversation }) => {
 
   //delete conversation
   const handleDeleteConversation = async () => {
-    if(selectedConversation._id === ('' || null || undefined)){
-      return ;
+    if (selectedConversation._id === ("" || null || undefined)) {
+      return;
     }
-    if(selectedConversation.mock === true){
-      return toast.error("You can't delete a conversation that you didn't start");
+    if (selectedConversation.mock === true) {
+      return toast.error(
+        "You can't delete a conversation that you didn't start"
+      );
     }
     try {
       const res = await fetch(
@@ -209,8 +217,8 @@ const Conversations = ({ selectedConversation,setSelectedConversation }) => {
         throw new Error(data.error || "Error while deleting conversation");
       }
       setSelectedConversation({});
-      queryClient.invalidateQueries({queryKey:['conversationLists']})
-      toast.success('conversation deleted successfully!')
+      queryClient.invalidateQueries({ queryKey: ["conversationLists"] });
+      toast.success("conversation deleted successfully!");
       return data;
     } catch (error) {
       console.error("Error deleting conversation:", error);
@@ -218,12 +226,28 @@ const Conversations = ({ selectedConversation,setSelectedConversation }) => {
     }
   };
 
+  //back to conversation list
+  const handleBackButton = () => {
+    setShowConversations(false);
+  };
+
+  const handleOpenImageDialog = (imgSrc) => {
+    const dialog = document.getElementById("show-image");
+    const imgElement = dialog.querySelector("img");
+    imgElement.src = imgSrc;
+    dialog.showModal();
+  };
+
   return (
     <div className="relative flex flex-col h-screen p-4 pt-2 border-r border-gray-700">
       {/* top arrow nav */}
       <div className="z-10 flex items-center justify-between p-2 border-b border-gray-700">
         <div className="flex gap-2 items-center">
-          <FaArrowLeftLong size={14} className="cursor-pointer" />
+          <FaArrowLeftLong
+            size={14}
+            className="cursor-pointer"
+            onClick={handleBackButton}
+          />
           <img
             src={selectedConversation.userProfileImg || "/avatars/avatar.png"}
             alt="User Avatar"
@@ -234,7 +258,9 @@ const Conversations = ({ selectedConversation,setSelectedConversation }) => {
         <div>
           <FaTrash
             className="cursor-pointer hover:text-red-500 mt-3 mr-3"
-            onClick={()=>document.getElementById('deleteConversation').showModal()}
+            onClick={() =>
+              document.getElementById("deleteConversation").showModal()
+            }
           />
         </div>
       </div>
@@ -322,8 +348,10 @@ const Conversations = ({ selectedConversation,setSelectedConversation }) => {
                               src={message.img}
                               className="w-[60%] object-contain rounded-lg border border-gray-700"
                               alt=""
+                              onClick={()=> handleOpenImageDialog(message.img)}
                             />
                           )}
+                          
                           <div className="chat-footer opacity-50">
                             {/* <time className="text-xs opacity-50">12:46</time> */}
                           </div>
@@ -355,6 +383,7 @@ const Conversations = ({ selectedConversation,setSelectedConversation }) => {
                                 alt=""
                                 hidden
                                 onLoad={() => setImageLoaded(true)}
+                                
                               />
                               <div className="skeleton w-[60%] object-contain rounded-lg border border-gray-700"></div>
                             </>
@@ -366,7 +395,28 @@ const Conversations = ({ selectedConversation,setSelectedConversation }) => {
                                 src={message.img}
                                 className="w-[60%] object-contain rounded-lg border border-gray-700"
                                 alt=""
+                                onClick={()=> handleOpenImageDialog(message.img)}
                               />
+                              {/* image open dialog */}
+                              <dialog
+                            id="show-image"
+                            className="modal border-0 bg-[rgba(155,218,239,0.3)]"
+                          >
+                            <div className="modal-box w-fit bg-black rounded-xl relative">
+                              <div className="  ">
+                                <form action="" method="dialog" className="absolute top-1 right-1">
+                                  <button className=" border-collapse border-0">
+                                    <IoClose  className="absolute top-0 right-0 text-white  rounded-full w-5 h-5 cursor-pointer"/>
+                                  </button>
+                                </form>
+                                <img
+                                  src={message.img}
+                                  className="w-full object-contain rounded-lg p-1"
+                                  alt=""
+                                />
+                              </div>
+                            </div>
+                          </dialog>
                               {message.seen ? (
                                 <BsCheck2All className="fill-blue-500" />
                               ) : (
@@ -387,25 +437,36 @@ const Conversations = ({ selectedConversation,setSelectedConversation }) => {
           </>
         )}
       </div>
-        {/* //delete conversatio confirmation */}
+      {/* //delete conversatio confirmation */}
       <dialog
         id="deleteConversation"
         className="modal border-none bg-[rgba(155,218,239,0.3)]"
       >
         <div className="modal-box w-fit bg-black rounded-xl">
           <div className=" flex flex-col gap-5 ">
-        <p className="font-semibold text-[18px]">Do you want to delete this conversation?</p>
+            <p className="font-semibold text-[18px]">
+              Do you want to delete this conversation?
+            </p>
             <div className="flex gap-4 justify-center items-center m-3">
-              <button onClick={handleDeleteConversation} className="btn btn-primary rounded-full btn-sm text-white px-4 hover:bg-red-500">Delete</button>
-              <form action="" method="dialog"> <button className="btn btn-primary rounded-full btn-sm text-white px-4">Cancel</button></form>
+              <button
+                onClick={handleDeleteConversation}
+                className="btn btn-primary rounded-full btn-sm text-white px-4 hover:bg-red-500"
+              >
+                Delete
+              </button>
+              <form action="" method="dialog">
+                {" "}
+                <button className="btn btn-primary rounded-full btn-sm text-white px-4">
+                  Cancel
+                </button>
+              </form>
             </div>
           </div>
         </div>
-        
       </dialog>
 
       {/* send message / Input field */}
-      <div className="mt-3 z-20 bg-black absolute bottom-1 right-1 left-1 border-t border-gray-700">
+      <div className="mt-3 z-20 bg-black absolute bottom-1 right-1 left-1 md:border-t md:border-gray-700">
         <form
           className="flex flex-col gap-2 w-full px-2"
           onSubmit={handleMessageSubmit}

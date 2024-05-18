@@ -203,31 +203,24 @@ const Post = ({ post }) => {
           {/* post image */}
           <div className="flex flex-col gap-3 overflow-hidden">
             <span>{post.text}</span>
-            {/* {post.img && (
-              <img
-                src={post.img}
-                className="h-80 object-contain rounded-lg border border-gray-700"
-                alt=""
-              />
-            )} */}
 
             {post.img && !imageLoaded && (
               <>
                 <img
                   src={post.img}
-                  className="h-80 object-contain rounded-lg border border-gray-700"
+                  className="max-h-80 w-full object-contain rounded-lg border border-gray-700"
                   alt=""
                   hidden
                   onLoad={() => setImageLoaded(true)}
                 />
-                <div className="skeleton h-80 object-contain rounded-lg border border-gray-700"></div>
+                <div className="skeleton max-h-80 w-full object-contain rounded-lg border border-gray-700"></div>
               </>
             )}
 
             {post.img && imageLoaded && (
               <img
                 src={post.img}
-                className="h-80 object-contain rounded-lg border border-gray-700"
+                className="max-h-80 w-full object-contain rounded-lg border border-gray-700"
                 alt=""
               />
             )}

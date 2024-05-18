@@ -46,7 +46,7 @@ const ConversationList = ({
     >
       <div className="relative ">
         <img
-          src={conversation.participants[0].profileImg || "/avatars/avatar.png"}
+          src={conversation.participants[0]?.profileImg || "/avatars/avatar.png"}
           alt="avatar"
           className="h-12 w-12 rounded-full shrink-0 "
         />
@@ -55,7 +55,7 @@ const ConversationList = ({
       <div className="flex flex-col gap-2">
         <div className="flex flex-row gap-1">
           <p className="font-bold">
-            {conversation.participants[0].username} <span>·</span>{" "}
+            {conversation.participants[0]?.username} <span>·</span>{" "}
             <span className="font-semibold">2 hr</span>
           </p>
         </div>

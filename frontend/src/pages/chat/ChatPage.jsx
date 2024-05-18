@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 import { TbMessagePlus } from "react-icons/tb";
 import { IoSettingsOutline } from "react-icons/io5";
+import { FaArrowLeftLong } from "react-icons/fa6";
 
 import ConversationList from "./ConversationList";
 import Conversations from "./Conversations";
@@ -10,11 +11,13 @@ import EmptyConversation from "./EmptyConversation";
 import ConversationListSkeleton from "../../components/skeletons/ConversationListSkeleton";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 import { useSocket } from "../../context/socketContext";
+import { useNavigate } from "react-router-dom";
 
 const ChatPage = () => {
   const [selectedConversation, setSelectedConversation] = useState({});
   const [searchText, setSearchText] = useState("");
   const [isSearchingConvo, setIsSearchingConvo] = useState(false);
+  const [showConversations, setShowConversations] = useState(false); // New state for toggling views
 
   const { onlineUsers, socket } = useSocket();
   const { data: authUser } = useQuery({ queryKey: ["authUser"] });
@@ -23,7 +26,9 @@ const ChatPage = () => {
   });
   const queryClient = useQueryClient();
 
-  //getting all the lists of conversations
+  const navigate = useNavigate();
+
+  // Fetch all conversations
   const { data: conversationLists, isPending: isConversationListLoading } =
     useQuery({
       queryKey: ["conversationLists"],
@@ -47,14 +52,14 @@ const ChatPage = () => {
       },
     });
 
-  //search for the conversation
+  // Search for conversations
   const handleSearch = async (e) => {
     e.preventDefault();
     if (searchText === "") {
       return;
     }
     try {
-      setIsSearchingConvo(true)
+      setIsSearchingConvo(true);
       const res = await fetch(`api/users/profile/${searchText}`, {
         method: "GET",
         headers: {
@@ -67,13 +72,13 @@ const ChatPage = () => {
         throw new Error(searchedUser.error || "failed to search for users");
       }
 
-      //check if the user is trying to search himself
+      // Check if the user is trying to message themselves
       const messagingYourself = searchedUser._id === authUser._id;
       if (messagingYourself) {
         return toast.error("you can't message yourself!");
       }
 
-      //check if the conversation already exists
+      // Check if the conversation already exists
       const conversationAlreadyExists = conversationLists.find(
         (conversation) => conversation.participants[0]._id === searchedUser._id
       );
@@ -86,6 +91,7 @@ const ChatPage = () => {
           fullName: searchedUser.fullName,
           userProfileImg: searchedUser.profileImg,
         });
+        setShowConversations(true); // Show conversation view
         return;
       }
 
@@ -111,18 +117,18 @@ const ChatPage = () => {
           mockConversation,
         ])
       ];
-      setSearchText('')
+      setSearchText("");
       refetchMessages();
+      setShowConversations(true); // Show conversation view
     } catch (error) {
       console.log(error);
       toast.error(error.message);
     } finally {
       setIsSearchingConvo(false);
-      
     }
   };
 
-  //newmessage instant update on ui
+  // Handle new messages
   useEffect(() => {
     socket?.on("newMessage", (message) => {
       if (selectedConversation._id === message.conversationId) {
@@ -150,11 +156,10 @@ const ChatPage = () => {
       });
     });
 
-    //remove the event after unmounting
     return () => socket?.off("newMessage");
   }, [messages, socket]);
 
-  //message seen feature
+  // Handle seen messages
   useEffect(() => {
     socket?.on("messagesSeen", ({ conversationId }) => {
       queryClient.setQueryData(["conversationLists"], (prev) => {
@@ -175,15 +180,25 @@ const ChatPage = () => {
     });
   }, [socket, conversationLists]);
 
-  return (
-    <>
-      {/* Left Panel */}
-      <div className="flex-[1.1] border-l border-r border-gray-700 max-h-[100vh] overflow-y-hidden">
-        <div className="flex justify-between items-center p-4  border-b border-gray-700">
-          <p className="font-bold">Messages</p>
+  const goToHome = ()=>{
+    navigate('/')
+  }
 
-          <div className="relative flex items-center gap-2 ">
-            <IoSettingsOutline className="w-4 cursor-pointer " />
+  return (
+    <div className="flex flex-col md:flex-row h-screen w-screen">
+      {/* Left Panel */}
+      <div
+        className={`flex-[1.1] border-l border-r border-gray-700 max-h-full overflow-y-hidden flex flex-col ${
+          showConversations ? "hidden md:flex" : "flex"
+        }`}
+      >
+        <div className="flex justify-between items-center p-4 border-b border-gray-700">
+          <div className="flex items-center gap-2">
+          <FaArrowLeftLong size={14} className="cursor-pointer" onClick={goToHome} />
+          <p className="font-bold">Messages</p>
+          </div>
+          <div className="relative flex items-center gap-2">
+            <IoSettingsOutline className="w-4 cursor-pointer" />
             <TbMessagePlus
               className="w-5 cursor-pointer"
               onClick={() => document.getElementById("new-message").showModal()}
@@ -195,11 +210,11 @@ const ChatPage = () => {
         <form
           action=""
           onSubmit={handleSearch}
-          className="flex gap-2 items-center w-full px-2 p-4 "
+          className="flex gap-2 items-center w-full px-2 p-4"
         >
           <input
             type="text"
-            className=" w-full px-3 p-2 rounded-xl  border-none focus:outline-none"
+            className="w-full px-3 p-2 rounded-xl border-none focus:outline-none"
             placeholder="Search direct message"
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
@@ -210,51 +225,48 @@ const ChatPage = () => {
         </form>
 
         {/* Conversation Lists */}
-        <div className="h-5/6 overflow-y-scroll  ">
-          {/* Show Skeleton if Loading */}
+        <div className="flex-1 overflow-y-auto">
           {isConversationListLoading && <ConversationListSkeleton />}
-          {/* Show Empty Message if No Conversations */}
           {conversationLists?.length === 0 ? (
-            <div
-              className="h-full p-2 flex items-center justify-center gap-3  hover:bg-stone-900 cursor-pointer"
-            >
+            <div className="h-full p-2 flex items-center justify-center gap-3 hover:bg-stone-900 cursor-pointer">
               <h1>No conversations</h1>
             </div>
           ) : (
-            <div className="  ">
-              {conversationLists?.map((conversation) => {
-                return (
-                  <ConversationList
-                    conversation={conversation}
-                    key={conversation._id}
-                    setSelectedConversation={setSelectedConversation}
-                    selectedConversation={selectedConversation}
-                    isOnline={onlineUsers.includes(
-                      conversation.participants[0]._id
-                    )}
-                  />
-                );
-              })}
+            <div>
+              {conversationLists?.map((conversation) => (
+                <ConversationList
+                  conversation={conversation}
+                  key={conversation._id}
+                  setSelectedConversation={(convo) => {
+                    setSelectedConversation(convo);
+                    setShowConversations(true); // Show conversation view
+                  }}
+                  selectedConversation={selectedConversation}
+                  isOnline={onlineUsers.includes(
+                    conversation.participants[0]?._id
+                  )}
+                />
+              ))}
             </div>
           )}
         </div>
       </div>
 
-      {/* new message dialog */}
+      {/* New message dialog */}
       <dialog
         id="new-message"
         className="modal border-none bg-[rgba(155,218,239,0.3)]"
       >
         <div className="modal-box h-[90vh] bg-black rounded-xl">
-          <div className=" text-white ">
+          <div className="text-white">
             <form
               action=""
               onSubmit={handleSearch}
-              className="flex gap-2 items-center w-full px-2 p-4 "
+              className="flex gap-2 items-center w-full px-2 p-4"
             >
               <input
                 type="text"
-                className=" w-full px-3 p-2 rounded-xl  border-none focus:outline-none"
+                className="w-full px-3 p-2 rounded-xl border-none focus:outline-none"
                 placeholder="Search direct message"
                 value={searchText}
                 onChange={(e) => setSearchText(e.target.value)}
@@ -263,37 +275,39 @@ const ChatPage = () => {
                 {isSearchingConvo ? <LoadingSpinner size="xs" /> : "Search"}
               </button>
             </form>
-            {conversationLists?.map((conversation) => {
-              return (
-                <ConversationList
-                  conversation={conversation}
-                  key={conversation._id}
-                  setSelectedConversation={setSelectedConversation}
-                  selectedConversation={selectedConversation}
-                  isSeen={conversation.lastMessage.seen}
-                />
-              );
-            })}
+            {conversationLists?.map((conversation) => (
+              <ConversationList
+                conversation={conversation}
+                key={conversation._id}
+                setSelectedConversation={(convo) => {
+                  setSelectedConversation(convo);
+                  setShowConversations(true); // Show conversation view
+                }}
+                selectedConversation={selectedConversation}
+                isSeen={conversation.lastMessage.seen}
+              />
+            ))}
           </div>
         </div>
         <form method="dialog" className="modal-backdrop">
           <h1 className="text-xl">New message</h1>
-          <button>close</button>
+          <button>Close</button>
         </form>
       </dialog>
 
       {/* Right Panel */}
-      <div className="flex-[2]">
-        {/* Show Empty Conversation or Selected Conversation */}
+      <div className={`flex-[2] ${showConversations ? "flex" : "hidden md:flex"} flex-col h-full`}>
         {!selectedConversation._id ? (
           <EmptyConversation />
         ) : (
-          <>
-            <Conversations selectedConversation={selectedConversation} setSelectedConversation={setSelectedConversation} />
-          </>
+          <Conversations
+            selectedConversation={selectedConversation}
+            setSelectedConversation={setSelectedConversation}
+            setShowConversations={setShowConversations} // Pass down the state setter
+          />
         )}
       </div>
-    </>
+    </div>
   );
 };
 
