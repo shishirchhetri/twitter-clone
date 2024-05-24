@@ -24,6 +24,7 @@ const ChatPage = () => {
   const { data: messages = [], refetch: refetchMessages } = useQuery({
     queryKey: ["messages"],
   });
+
   const queryClient = useQueryClient();
 
   const navigate = useNavigate();
@@ -80,12 +81,12 @@ const ChatPage = () => {
 
       // Check if the conversation already exists
       const conversationAlreadyExists = conversationLists.find(
-        (conversation) => conversation.participants[0]._id === searchedUser._id
+        (conversation) => conversation.participants[0]?._id === searchedUser._id
       );
 
       if (conversationAlreadyExists) {
         setSelectedConversation({
-          _id: conversationAlreadyExists._id,
+          _id: conversationAlreadyExists?._id,
           otherUserId: searchedUser._id,
           username: searchedUser.username,
           fullName: searchedUser.fullName,
@@ -111,12 +112,14 @@ const ChatPage = () => {
           },
         ],
       };
+      // setSelectedConversation(mockConversation);
       await Promise.all[
         queryClient.setQueryData(["conversationLists"], (oldData) => [
           ...oldData,
           mockConversation,
         ])
       ];
+    
       setSearchText("");
       refetchMessages();
       setShowConversations(true); // Show conversation view
@@ -185,7 +188,7 @@ const ChatPage = () => {
   }
 
   return (
-    <div className="flex flex-col md:flex-row h-screen w-screen">
+    <div className="flex flex-col md:flex-row h-screen w-screen ">
       {/* Left Panel */}
       <div
         className={`flex-[1.1] border-l border-r border-gray-700 max-h-full overflow-y-hidden flex flex-col ${
@@ -245,6 +248,7 @@ const ChatPage = () => {
                   isOnline={onlineUsers.includes(
                     conversation.participants[0]?._id
                   )}
+                  refetchMessages={refetchMessages}
                 />
               ))}
             </div>
@@ -298,7 +302,7 @@ const ChatPage = () => {
       {/* Right Panel */}
       <div className={`flex-[2] ${showConversations ? "flex" : "hidden md:flex"} flex-col h-full`}>
         {!selectedConversation._id ? (
-          <EmptyConversation />
+          <EmptyConversation className='hidden md:block'/>
         ) : (
           <Conversations
             selectedConversation={selectedConversation}

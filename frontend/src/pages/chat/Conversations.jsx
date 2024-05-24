@@ -93,7 +93,9 @@ const Conversations = ({
     queryFn: async () => {
       //do not run the query for the mock /new conversation
       if (selectedConversation.mock === true) {
-        return messages;
+        queryClient.setQueryData(['messages'], []
+        )
+        return [];
       }
 
       try {

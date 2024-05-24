@@ -7,7 +7,8 @@ const ConversationList = ({
   setSelectedConversation,
   selectedConversation,
   isOnline,
-  isSeen
+  isSeen,
+  refetchMessages
 }) => {
   const queryClient = useQueryClient();
   //getting the info of current logged in user
@@ -33,6 +34,7 @@ const ConversationList = ({
       fullName: conversation.participants[0].fullName,
       mock: conversation.mock,
     });
+    refetchMessages();
     queryClient.invalidateQueries({queryKey:['messages']});
   };
 
