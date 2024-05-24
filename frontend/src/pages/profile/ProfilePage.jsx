@@ -88,7 +88,7 @@ const ProfilePage = () => {
 
   return (
     <>
-      <div className='flex-[4_4_0]  border-r border-gray-700 min-h-screen '>
+      <div className='flex-[4_4_0]  border-r border-gray-700 min-h-screen mb-14'>
         {/* HEADER */}
         {isLoading && isRefetching && <ProfileHeaderSkeleton />}
         {!isLoading && !isRefetching && !user && (
@@ -97,7 +97,7 @@ const ProfilePage = () => {
         <div className='flex flex-col'>
           {!isLoading && !isRefetching && user && (
             <>
-              <div className='flex gap-10 px-4 py-2 items-center'>
+              <div className='sticky top-0 bg-black z-10 flex gap-10 px-4 py-2 items-center'>
                 <Link to='/'>
                   <FaArrowLeft className='w-4 h-4' />
                 </Link>

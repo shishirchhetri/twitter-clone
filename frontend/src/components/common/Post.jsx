@@ -220,7 +220,7 @@ const Post = ({ post }) => {
             {post.img && imageLoaded && (
               <img
                 src={post.img}
-                className="max-h-80 w-full object-contain rounded-lg border border-gray-700"
+                className="max-h-80 max-w-full object-contain rounded-lg border border-gray-700"
                 alt=""
               />
             )}
