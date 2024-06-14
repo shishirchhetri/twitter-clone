@@ -78,7 +78,7 @@ const RightPanel = () => {
 
   return (
     <div>
-      <div className="hidden lg:block mx-2 sticky top-0 w-full  ">
+      <div className="hidden lg:block mx-2 sticky top-3 w-full  ">
         {/* search for user form */}
         <form
           action=""
