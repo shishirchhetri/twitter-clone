@@ -24,6 +24,18 @@ This is a Twitter clone application built using React.js, Tanstack query, MongoD
 - **Database**: MongoDB
 - **Styling**: Tailwind CSS
 
+
+## Test user
+If you're someone who wants to test the app, you can login into the app with the link:
+``` 
+https://twitter-clone-n7ff.onrender.com
+```
+Cresentials:
+```
+username: testuser
+password: testuser@123
+``` 
+
 ## Installation
 
 1. Clone the repository:
