@@ -34,6 +34,9 @@ app.use(express.json({ limit: '5mb' }));
 //parse form data (url encoded)
 app.use(express.urlencoded({ extended: true }));
 
+//keeps render free-tier instance awake (see .github/workflows/keep-alive.yml)
+app.get('/api/health', (req, res) => res.status(200).json({ status: 'ok' }));
+
 //routes
 app.use('/api/auth', authRoute);
 app.use('/api/users', userRoute);
